@@ -9,7 +9,7 @@ export default function Home() {
         <span style={{ fontSize: 18, fontWeight: 700, color: "#f1f5f9", letterSpacing: "-0.3px" }}>
           Print<span style={{ color: "#0ea5e9" }}>AI</span>
         </span>
-        <Link href="/brief" style={{ background: "#0ea5e9", color: "#fff", fontSize: 13, fontWeight: 600, padding: "8px 18px", borderRadius: 8, textDecoration: "none", boxShadow: "0 2px 8px rgba(14,165,233,0.35)" }}>
+        <Link href="/auth" style={{ background: "#0ea5e9", color: "#fff", fontSize: 13, fontWeight: 600, padding: "8px 18px", borderRadius: 8, textDecoration: "none", boxShadow: "0 2px 8px rgba(14,165,233,0.35)" }}>
           Start a project
         </Link>
       </nav>
@@ -30,7 +30,7 @@ export default function Home() {
         </p>
 
         <div style={{ display: "flex", gap: 12, justifyContent: "center", marginBottom: 80 }}>
-          <Link href="/brief" style={{ background: "#0ea5e9", color: "#fff", fontSize: 15, fontWeight: 600, padding: "14px 28px", borderRadius: 10, textDecoration: "none", boxShadow: "0 2px 12px rgba(14,165,233,0.4)", display: "inline-flex", alignItems: "center", gap: 8 }}>
+          <Link href="/auth" style={{ background: "#0ea5e9", color: "#fff", fontSize: 15, fontWeight: 600, padding: "14px 28px", borderRadius: 10, textDecoration: "none", boxShadow: "0 2px 12px rgba(14,165,233,0.4)", display: "inline-flex", alignItems: "center", gap: 8 }}>
             <Sparkles size={16} /> Start a new project
           </Link>
           <a href="#how-it-works" style={{ background: "#fff", color: "#475569", fontSize: 15, fontWeight: 500, padding: "14px 28px", borderRadius: 10, textDecoration: "none", border: "1.5px solid #e2e8f0", display: "inline-flex", alignItems: "center" }}>
