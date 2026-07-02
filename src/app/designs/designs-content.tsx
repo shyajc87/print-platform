@@ -1,7 +1,8 @@
+"use client";
 import { Suspense } from "react";
 import DesignsContent from "./designs-content";
 
-export default function DesignsPage() {
+export default function DesignsContent() {
   return (
     <Suspense fallback={
       <div style={{ background: "#f0f4f8", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Inter, sans-serif" }}>
