@@ -31,10 +31,10 @@ export async function middleware(request: NextRequest) {
   );
 
   if (!user && isProtected) {
-    return NextResponse.redirect(new URL("/auth", request.url));
+    return NextResponse.redirect(new URL("/", request.url));
   }
 
-  if (user && request.nextUrl.pathname === "/auth") {
+  if (user && request.nextUrl.pathname === "/") {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
