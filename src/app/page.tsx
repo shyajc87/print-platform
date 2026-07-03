@@ -104,6 +104,7 @@ export default function Home() {
           width: 200px; height: 240px;
           perspective: 900px;
           flex-shrink: 0;
+          margin-right: 70px;
         }
         .ring3d {
           width: 100%; height: 100%;
@@ -115,8 +116,8 @@ export default function Home() {
         .face3d {
           position: absolute;
           top: 50%; left: 50%;
-          width: 128px; height: 168px;
-          margin: -84px 0 0 -64px;
+          width: 112px; height: 150px;
+          margin: -75px 0 0 -56px;
           background: #fff;
           border: 1px solid ${C.border};
           border-radius: 14px;
@@ -160,7 +161,9 @@ export default function Home() {
           .trust-row { grid-template-columns: 1fr !important; }
           .navbar { flex-wrap: wrap !important; }
           .search-wrap { order: 3; flex-basis: 100% !important; margin-top: 10px; }
-          .stage3d { width: 170px; height: 210px; }
+          .stage3d { width: 150px; height: 190px; margin: 0 auto !important; }
+          .face3d { width: 96px; height: 128px; margin: -64px 0 0 -48px; }
+          .ring3d .face3d { transform-origin: center; }
         }
       `}</style>
 
@@ -207,7 +210,7 @@ export default function Home() {
       </div>
 
       {/* AI Hero with 3D carousel */}
-      <div className="ai-hero" style={{ background: C.card, borderBottom: `1px solid ${C.border}`, padding: "36px 24px", display: "flex", alignItems: "center", gap: 40, maxWidth: 1100, margin: "0 auto" }}>
+      <div className="ai-hero" style={{ background: C.card, borderBottom: `1px solid ${C.border}`, padding: "36px 24px", display: "flex", alignItems: "center", gap: 40, maxWidth: 1100, margin: "0 auto", overflow: "hidden" }}>
         <div style={{ flex: 1 }}>
           <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: C.indigoLight, color: C.indigo, border: `1px solid ${C.indigoBorder}`, fontSize: 11, fontWeight: 600, padding: "4px 12px", borderRadius: 20, marginBottom: 14 }}>
             <Sparkles size={12} /> NEW · AI-POWERED DESIGN
@@ -240,7 +243,7 @@ export default function Home() {
               <div
                 key={label}
                 className="face3d"
-                style={{ transform: `rotateY(${i * 45}deg) translateZ(180px)` }}
+                style={{ transform: `rotateY(${i * 45}deg) translateZ(150px)` }}
               >
                 <div className="face-badge">AI</div>
                 <div className="face-icon" style={{ background: bg }}>
