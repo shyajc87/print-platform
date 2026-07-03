@@ -1,91 +1,275 @@
 "use client";
 import { useState } from "react";
-import { Sparkles, FileText, Printer } from "lucide-react";
+import { useRouter } from "next/navigation";
 import AuthModal from "@/components/AuthModal";
+import {
+  Printer, Search, ShoppingCart, Sparkles, FileText, LayoutGrid, Package,
+  Shirt, Gift, PenTool, Award, Truck, ShieldCheck, Receipt, Building2,
+  Soup, Rocket, ShoppingBag, GraduationCap, Pill, PartyPopper, Store,
+  IdCard, Bookmark, Tag, ArrowRight, CheckCircle2
+} from "lucide-react";
+
+/* ─── Design system: "Paper & Ink" ───────────────────────────
+   Paper  #faf9f7  warm off-white background (paper)
+   Ink    #111827  headers, nav, primary text (ink)
+   Indigo #4f46e5  AI actions, primary CTA (intelligence)
+   Amber  #f59e0b  announcement, small highlights (CMYK warmth)
+──────────────────────────────────────────────────────────────── */
+const C = {
+  paper: "#faf9f7",
+  ink: "#111827",
+  inkSoft: "#1f2937",
+  indigo: "#4f46e5",
+  indigoDark: "#4338ca",
+  indigoLight: "#eef2ff",
+  indigoBorder: "#c7d2fe",
+  amber: "#f59e0b",
+  text: "#111827",
+  textSub: "#6b7280",
+  textMute: "#9ca3af",
+  border: "#e7e5e0",
+  card: "#ffffff",
+};
+
+const CATEGORIES = [
+  { Icon: Sparkles, label: "AI Designs", active: true },
+  { Icon: IdCard, label: "Visiting Cards" },
+  { Icon: FileText, label: "Brochures" },
+  { Icon: LayoutGrid, label: "Hoardings" },
+  { Icon: Package, label: "Packaging" },
+  { Icon: Shirt, label: "Apparel" },
+  { Icon: Gift, label: "Corporate Gifts" },
+  { Icon: PenTool, label: "Stationery" },
+  { Icon: Award, label: "Certificates" },
+  { Icon: Truck, label: "Same Day" },
+];
+
+const POPULAR = [
+  { Icon: FileText, label: "Brochures" },
+  { Icon: LayoutGrid, label: "Hoardings" },
+  { Icon: IdCard, label: "Visiting Cards" },
+  { Icon: Package, label: "Packaging" },
+  { Icon: Shirt, label: "T-Shirts" },
+  { Icon: PenTool, label: "Stationery" },
+  { Icon: Bookmark, label: "Standees" },
+  { Icon: Award, label: "Certificates" },
+  { Icon: Gift, label: "Corp Gifts" },
+  { Icon: Tag, label: "Labels" },
+];
+
+const BUSINESS = [
+  { Icon: Building2, label: "Real Estate" },
+  { Icon: Soup, label: "Restaurants & Cafes" },
+  { Icon: Rocket, label: "Startups" },
+  { Icon: ShoppingBag, label: "Retail & Fashion" },
+  { Icon: GraduationCap, label: "Education" },
+  { Icon: Pill, label: "Healthcare" },
+  { Icon: PartyPopper, label: "Events & Weddings" },
+  { Icon: Store, label: "E-commerce" },
+];
+
+const TRUST = [
+  { Icon: Truck, title: "Same-day delivery", sub: "Chennai, Bangalore, Hyderabad" },
+  { Icon: Sparkles, title: "AI-generated designs", sub: "3 concepts in under 2 minutes" },
+  { Icon: ShieldCheck, title: "Print-ready output", sub: "300 DPI, CMYK, bleed included" },
+  { Icon: Receipt, title: "GST invoices", sub: "Automatic on every order" },
+];
 
 export default function Home() {
+  const router = useRouter();
   const [authOpen, setAuthOpen] = useState(false);
+  const [prompt, setPrompt] = useState("");
+
+  const startProject = () => setAuthOpen(true);
 
   return (
-    <div style={{ background: "#f0f4f8", minHeight: "100vh", fontFamily: "Inter, system-ui, sans-serif" }}>
+    <div style={{ background: C.paper, minHeight: "100vh", fontFamily: "Inter, system-ui, sans-serif" }}>
       <style>{`
-        @media (max-width: 640px) {
-          .hero-title { font-size: 30px !important; }
-          .hero-btns { flex-direction: column !important; }
-          .hero-btns button, .hero-btns a { width: 100% !important; justify-content: center !important; }
-          .feature-grid { grid-template-columns: 1fr !important; }
-          .nav-inner { padding: 14px 20px !important; }
-          .hero-inner { padding: 48px 20px 0 !important; }
+        .cat-nav::-webkit-scrollbar { display: none; }
+        .cat-nav { scrollbar-width: none; }
+        .cat-tab { transition: color .15s, border-color .15s; }
+        .cat-tab:hover { color: ${C.indigo} !important; }
+        .cat-card, .biz-card { transition: border-color .15s, transform .15s, box-shadow .15s; }
+        .cat-card:hover, .biz-card:hover { border-color: ${C.indigoBorder} !important; transform: translateY(-2px); box-shadow: 0 4px 14px rgba(79,70,229,.08); }
+        .cta-btn { transition: background .15s, transform .1s; }
+        .cta-btn:hover { background: ${C.indigoDark} !important; }
+        .cta-btn:active { transform: scale(.98); }
+        @media (max-width: 860px) {
+          .ai-hero { flex-direction: column !important; }
+          .ai-preview { display: none !important; }
+          .trust-row { display: grid !important; grid-template-columns: 1fr 1fr !important; }
+          .trust-item { border-right: none !important; border-bottom: 1px solid ${C.border}; }
+          .nav-links { display: none !important; }
+          .search-wrap { max-width: none !important; }
         }
-        @media (min-width: 641px) and (max-width: 1024px) {
-          .feature-grid { grid-template-columns: 1fr 1fr !important; }
+        @media (max-width: 560px) {
+          .hero-h1 { font-size: 24px !important; }
+          .ai-input-row { flex-direction: column !important; }
+          .ai-input-row button { width: 100% !important; justify-content: center !important; }
+          .trust-row { grid-template-columns: 1fr !important; }
+          .navbar { flex-wrap: wrap !important; }
+          .search-wrap { order: 3; flex-basis: 100% !important; margin-top: 10px; }
         }
-        .cta-primary { transition: transform 0.15s, box-shadow 0.15s; }
-        .cta-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(14,165,233,0.45) !important; }
-        .feature-card { transition: transform 0.15s, border-color 0.15s; }
-        .feature-card:hover { transform: translateY(-2px); border-color: #cbd5e1 !important; }
       `}</style>
 
       <AuthModal isOpen={authOpen} onClose={() => setAuthOpen(false)} />
 
-      <nav className="nav-inner" style={{ background: "#1e293b", padding: "14px 40px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #0f172a" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 8, background: "#e0f2fe", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <Printer size={17} color="#0ea5e9" />
+      {/* Announcement */}
+      <div style={{ background: C.ink, color: "#e5e7eb", textAlign: "center", fontSize: 12, fontWeight: 500, padding: "8px 16px" }}>
+        <Sparkles size={12} style={{ display: "inline", verticalAlign: -2, color: C.amber }} />{" "}
+        AI generates print-ready designs in 2 minutes · Same-day delivery in Chennai, Bangalore & Hyderabad
+      </div>
+
+      {/* Navbar */}
+      <nav className="navbar" style={{ background: C.card, borderBottom: `1px solid ${C.border}`, padding: "12px 24px", display: "flex", alignItems: "center", gap: 16, position: "sticky", top: 0, zIndex: 100 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }} onClick={() => router.push("/")}>
+          <div style={{ width: 32, height: 32, borderRadius: 8, background: C.ink, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Printer size={16} color={C.amber} />
           </div>
-          <span style={{ fontSize: 17, fontWeight: 600, color: "#f1f5f9" }}>Print<span style={{ color: "#0ea5e9" }}>AI</span></span>
+          <span style={{ fontSize: 18, fontWeight: 700, color: C.ink, letterSpacing: "-0.3px" }}>
+            Print<span style={{ color: C.indigo }}>AI</span>
+          </span>
         </div>
-        <button onClick={() => setAuthOpen(true)} style={{ background: "#0ea5e9", color: "#fff", fontSize: 13, fontWeight: 600, padding: "8px 18px", borderRadius: 8, border: "none", cursor: "pointer", fontFamily: "inherit", boxShadow: "0 2px 8px rgba(14,165,233,0.35)" }}>
-          Sign in
-        </button>
+
+        <div className="search-wrap" style={{ flex: 1, maxWidth: 460, position: "relative" }}>
+          <input
+            type="text"
+            placeholder="Search brochures, hoardings, visiting cards..."
+            style={{ width: "100%", background: C.paper, border: `1px solid ${C.border}`, borderRadius: 10, fontSize: 13, color: C.text, padding: "9px 38px 9px 14px", fontFamily: "inherit", outline: "none" }}
+          />
+          <Search size={16} color={C.textMute} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)" }} />
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 14, marginLeft: "auto" }}>
+          <span className="nav-links" style={{ fontSize: 13, color: C.textSub, cursor: "pointer" }}>Track order</span>
+          <button aria-label="Cart" style={{ position: "relative", background: "none", border: "none", cursor: "pointer", color: C.textSub, padding: 4 }}>
+            <ShoppingCart size={19} />
+          </button>
+          <button className="cta-btn" onClick={startProject} style={{ background: C.indigo, color: "#fff", border: "none", borderRadius: 9, fontSize: 13, fontWeight: 600, padding: "8px 18px", cursor: "pointer", fontFamily: "inherit" }}>
+            Sign in
+          </button>
+        </div>
       </nav>
 
-      <div className="hero-inner" style={{ maxWidth: 680, margin: "0 auto", padding: "80px 24px 0", textAlign: "center" }}>
-        <div style={{ display: "inline-block", background: "#e0f2fe", color: "#0369a1", fontSize: 12, fontWeight: 700, padding: "5px 14px", borderRadius: 20, letterSpacing: "0.5px", marginBottom: 24, border: "1px solid #bae6fd" }}>
-          AI-POWERED WEB-TO-PRINT
+      {/* Category nav */}
+      <div className="cat-nav" style={{ background: C.card, borderBottom: `1px solid ${C.border}`, padding: "0 24px", display: "flex", overflowX: "auto" }}>
+        {CATEGORIES.map(({ Icon, label, active }) => (
+          <div key={label} className="cat-tab" style={{ padding: "11px 14px", fontSize: 13, color: active ? C.indigo : C.textSub, whiteSpace: "nowrap", cursor: "pointer", borderBottom: `2px solid ${active ? C.indigo : "transparent"}`, display: "flex", alignItems: "center", gap: 6, fontWeight: active ? 600 : 400 }}>
+            <Icon size={15} />
+            {label}
+          </div>
+        ))}
+      </div>
+
+      {/* AI Hero */}
+      <div className="ai-hero" style={{ background: C.card, borderBottom: `1px solid ${C.border}`, padding: "36px 24px", display: "flex", alignItems: "center", gap: 32, maxWidth: 1100, margin: "0 auto" }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: C.indigoLight, color: C.indigo, border: `1px solid ${C.indigoBorder}`, fontSize: 11, fontWeight: 600, padding: "4px 12px", borderRadius: 20, marginBottom: 14 }}>
+            <Sparkles size={12} /> NEW · AI-POWERED DESIGN
+          </div>
+          <h1 className="hero-h1" style={{ fontSize: 32, fontWeight: 800, color: C.ink, lineHeight: 1.2, marginBottom: 10, letterSpacing: "-0.5px" }}>
+            Describe your brand.<br />We design it in 2 minutes.
+          </h1>
+          <p style={{ fontSize: 15, color: C.textSub, lineHeight: 1.6, marginBottom: 20, maxWidth: 480 }}>
+            Tell us what you need in plain English — our AI generates 3 print-ready concepts instantly. No designer needed to get started.
+          </p>
+          <div className="ai-input-row" style={{ display: "flex", gap: 10, maxWidth: 540 }}>
+            <input
+              type="text"
+              value={prompt}
+              onChange={e => setPrompt(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && startProject()}
+              placeholder="e.g. Luxury real estate brochure for Green Valley, Chennai..."
+              style={{ flex: 1, background: C.paper, border: `1px solid ${C.border}`, borderRadius: 10, fontSize: 13, color: C.text, padding: "12px 14px", fontFamily: "inherit", outline: "none" }}
+            />
+            <button className="cta-btn" onClick={startProject} style={{ background: C.indigo, color: "#fff", border: "none", borderRadius: 10, fontSize: 13, fontWeight: 600, padding: "12px 20px", cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 7, boxShadow: "0 2px 10px rgba(79,70,229,.3)" }}>
+            <Sparkles size={15} /> Generate designs
+            </button>
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 16, marginTop: 14 }}>
+            {["Print-ready PDF output", "3 concepts in 2 min", "No design skills needed"].map(t => (
+              <span key={t} style={{ fontSize: 12, color: C.textMute, display: "flex", alignItems: "center", gap: 5 }}>
+                <CheckCircle2 size={13} color="#10b981" /> {t}
+              </span>
+            ))}
+          </div>
         </div>
 
-        <h1 className="hero-title" style={{ fontSize: 46, fontWeight: 700, color: "#0f172a", letterSpacing: "-1px", lineHeight: 1.15, marginBottom: 18 }}>
-          From brief to<br /><span style={{ color: "#0ea5e9" }}>print-ready</span> in minutes
-        </h1>
-
-        <p style={{ fontSize: 17, color: "#64748b", lineHeight: 1.7, maxWidth: 500, margin: "0 auto 36px" }}>
-          AI generates professional brochure designs instantly. Share with clients, collect feedback, and send to print.
-        </p>
-
-        <div className="hero-btns" style={{ display: "flex", gap: 12, justifyContent: "center", marginBottom: 72, flexWrap: "wrap" }}>
-          <button className="cta-primary" onClick={() => setAuthOpen(true)} style={{ background: "#0ea5e9", color: "#fff", fontSize: 15, fontWeight: 600, padding: "14px 28px", borderRadius: 10, border: "none", cursor: "pointer", fontFamily: "inherit", boxShadow: "0 2px 12px rgba(14,165,233,0.4)", display: "inline-flex", alignItems: "center", gap: 8 }}>
-            <Sparkles size={16} /> Start a project
-          </button>
-          <a href="#how-it-works" style={{ background: "#fff", color: "#475569", fontSize: 15, fontWeight: 500, padding: "14px 28px", borderRadius: 10, textDecoration: "none", border: "1.5px solid #e2e8f0", display: "inline-flex", alignItems: "center" }}>
-            See how it works
-          </a>
-        </div>
-
-        <div id="how-it-works" className="feature-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16, marginBottom: 60 }}>
+        <div className="ai-preview" style={{ display: "flex", gap: 10, flexShrink: 0 }}>
           {[
-            { Icon: FileText, title: "Submit a brief", desc: "Describe your brand and requirements in plain English", color: "#0ea5e9", shadow: "rgba(14,165,233,0.3)", step: "01" },
-            { Icon: Sparkles, title: "AI generates designs", desc: "Get 3 professional concepts in under 2 minutes", color: "#8b5cf6", shadow: "rgba(139,92,246,0.3)", step: "02" },
-            { Icon: Printer, title: "Approve and print", desc: "Review, annotate, and approve your print-ready PDF", color: "#10b981", shadow: "rgba(16,185,129,0.3)", step: "03" },
-          ].map(({ Icon, title, desc, color, shadow, step }) => (
-            <div className="feature-card" key={title} style={{ background: "#fff", borderRadius: 14, border: "1px solid #e2e8f0", overflow: "hidden", textAlign: "left", cursor: "default" }}>
-              <div style={{ background: "#1e293b", padding: "16px 18px", borderBottom: "1px solid #0f172a", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <div style={{ width: 34, height: 34, borderRadius: 9, background: color, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: `0 2px 8px ${shadow}` }}>
-                  <Icon size={17} color="#fff" />
-                </div>
-                <span style={{ fontSize: 11, fontWeight: 700, color: "#334155", letterSpacing: "0.5px" }}>{step}</span>
-              </div>
-              <div style={{ padding: "16px 18px" }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: "#0f172a", marginBottom: 5 }}>{title}</div>
-                <div style={{ fontSize: 12, color: "#64748b", lineHeight: 1.6 }}>{desc}</div>
-              </div>
+            { Icon: Building2, label: "Real estate brochure" },
+            { Icon: Soup, label: "Restaurant menu" },
+            { Icon: IdCard, label: "Visiting card" },
+          ].map(({ Icon, label }, i) => (
+            <div key={label} style={{ width: 96, height: 132, background: C.paper, border: `1px solid ${C.border}`, borderRadius: 10, position: "relative", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, transform: `rotate(${(i - 1) * 3}deg)`, boxShadow: "0 2px 8px rgba(0,0,0,.05)" }}>
+              <Icon size={26} color={C.textMute} />
+              <span style={{ fontSize: 9, color: C.textMute, textAlign: "center", padding: "0 10px", lineHeight: 1.4 }}>{label}</span>
+              <div style={{ position: "absolute", top: 7, right: 7, background: C.indigo, color: "#fff", fontSize: 8, fontWeight: 700, padding: "2px 6px", borderRadius: 4 }}>AI</div>
             </div>
           ))}
         </div>
       </div>
 
-      <footer style={{ borderTop: "1px solid #e2e8f0", padding: "20px 40px", textAlign: "center", background: "#fff" }}>
-        <span style={{ fontSize: 13, color: "#94a3b8" }}>PrintAI © 2026</span>
+      {/* Trust row */}
+      <div className="trust-row" style={{ display: "flex", background: C.card, borderBottom: `1px solid ${C.border}`, maxWidth: 1100, margin: "0 auto" }}>
+        {TRUST.map(({ Icon, title, sub }, i) => (
+          <div key={title} className="trust-item" style={{ flex: 1, padding: "16px 20px", display: "flex", alignItems: "center", gap: 12, borderRight: i < TRUST.length - 1 ? `1px solid ${C.border}` : "none" }}>
+            <Icon size={21} color={C.indigo} style={{ flexShrink: 0 }} />
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: C.ink }}>{title}</div>
+              <div style={{ fontSize: 11.5, color: C.textMute, marginTop: 1 }}>{sub}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Popular categories */}
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "28px 24px 8px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+          <h2 style={{ fontSize: 16, fontWeight: 700, color: C.ink }}>Popular categories</h2>
+          <span style={{ fontSize: 12, color: C.indigo, cursor: "pointer", fontWeight: 500, display: "flex", alignItems: "center", gap: 3 }}>
+            View all <ArrowRight size={12} />
+          </span>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(96px, 1fr))", gap: 10 }}>
+          {POPULAR.map(({ Icon, label }) => (
+            <div key={label} className="cat-card" onClick={startProject} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: "16px 10px", textAlign: "center", cursor: "pointer" }}>
+              <Icon size={23} color={C.indigo} style={{ marginBottom: 8 }} />
+              <div style={{ fontSize: 12, color: C.textSub, lineHeight: 1.3, fontWeight: 500 }}>{label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Business types */}
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "24px 24px 40px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+          <h2 style={{ fontSize: 16, fontWeight: 700, color: C.ink }}>Shop by business type</h2>
+          <span style={{ fontSize: 12, color: C.indigo, cursor: "pointer", fontWeight: 500, display: "flex", alignItems: "center", gap: 3 }}>
+            View all <ArrowRight size={12} />
+          </span>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10 }}>
+          {BUSINESS.map(({ Icon, label }) => (
+            <div key={label} className="biz-card" onClick={startProject} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: "14px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }}>
+              <Icon size={19} color={C.textMute} style={{ flexShrink: 0 }} />
+              <span style={{ fontSize: 12.5, color: C.ink, fontWeight: 500, lineHeight: 1.4 }}>{label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Footer */}
+      <footer style={{ background: C.ink, padding: "32px 24px", marginTop: 20 }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ width: 28, height: 28, borderRadius: 7, background: "#1f2937", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Printer size={14} color={C.amber} />
+            </div>
+            <span style={{ fontSize: 15, fontWeight: 600, color: "#f9fafb" }}>Print<span style={{ color: "#818cf8" }}>AI</span></span>
+          </div>
+          <span style={{ fontSize: 12, color: "#6b7280" }}>© 2026 PrintAI · AI-powered web-to-print · Chennai, India</span>
+        </div>
       </footer>
     </div>
   );
