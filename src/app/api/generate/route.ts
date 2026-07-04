@@ -1,5 +1,10 @@
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
+import { renderBrochureHtml, getPageSizeMm } from "@/lib/templates";
+import { renderManyToPdfAndPng } from "@/lib/renderPdf";
+
+// Puppeteer/Chromium cold starts + multiple renders can take a while.
+export const maxDuration = 60;
 
 const GEMINI_KEY = process.env.GEMINI_API_KEY!;
 const TEXT_MODEL = "gemini-2.5-flash";
@@ -22,10 +27,6 @@ const SIZE_LABELS: Record<string, string> = {
   "custom": "custom size",
 };
 
-// Builds the image-generation prompt from what the user entered in the brief,
-// plus one deliberate default: an Indian-market visual baseline (currency,
-// typography conventions, locally recognizable design cues). Location, if
-// given, comes from the user and takes precedence over this general default.
 function briefToPromptLines(brief: Brief): string {
   const lines = [
     `Brand: ${brief.brand_name}`,
@@ -39,32 +40,34 @@ function briefToPromptLines(brief: Brief): string {
   const colours = [brief.primary_colour, brief.secondary_colour].filter(Boolean).join(", ");
   if (colours) lines.push(`Colours: ${colours}`);
   if (brief.size) lines.push(`Format: ${SIZE_LABELS[brief.size] || brief.size}`);
-  if (brief.additional_notes) lines.push(`Additional content to include: ${brief.additional_notes}`);
   lines.push(
-    `Market default: Indian market — use ₹ (rupee) pricing format if prices appear, typography and visual conventions common in Indian print marketing, and locally relatable imagery${brief.location ? ` for ${brief.location}` : ""}.`
+    `Market default: Indian market — visual style and imagery that feels locally relatable${brief.location ? ` for ${brief.location}` : ""}.`
   );
   return lines.join("\n");
 }
 
-async function buildPrompt(brief: Brief): Promise<string> {
+// Builds a prompt for a BACKGROUND/HERO IMAGE ONLY. Text (brand name, price,
+// phone number, etc.) is rendered separately as real HTML text by the template
+// — the AI is never asked to render text, since image models can't reliably
+// spell small print text, get exact prices right, or match brand colours.
+async function buildImagePrompt(brief: Brief): Promise<string> {
   const briefText = briefToPromptLines(brief);
   try {
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${TEXT_MODEL}:generateContent?key=${GEMINI_KEY}`,
       { method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: `You are an expert print designer. Convert this brief into an image generation prompt using the details below. Follow the brief's own details exactly; the "Market default" line is a deliberate baseline style to apply unless the brief's other details override it. Output ONLY the prompt, 60-80 words, no quotes.\n${briefText}` }] }],
-          generationConfig: { maxOutputTokens: 500, thinkingConfig: { thinkingBudget: 0 } },
+          contents: [{ parts: [{ text: `You are a photo art director. Convert this brief into a description of a BACKGROUND/HERO IMAGE ONLY — describe the visual scene, subject, lighting, and mood. Do NOT mention any text, words, numbers, prices, logos, or typography — those are added separately. Output ONLY the image description, 40-60 words, no quotes.\n${briefText}` }] }],
+          generationConfig: { maxOutputTokens: 400, thinkingConfig: { thinkingBudget: 0 } },
         }),
       }
     );
     const data = await res.json();
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (text && text.trim().split(/\s+/).length >= 15) return text.trim();
+    if (text && text.trim().split(/\s+/).length >= 10) return text.trim();
     throw new Error("text response missing or too short");
   } catch {
-    // Fallback: use the brief's own fields directly, nothing invented.
-    return briefText.replace(/\n/g, ", ");
+    return `A photographic scene representing ${brief.industry.replace("-", " ")}: ${brief.product_description}`;
   }
 }
 
@@ -85,12 +88,13 @@ async function generateWithNanoBanana(
   refImage: { data: string; mimeType: string } | null
 ): Promise<{ img: string | null; err: string | null }> {
   try {
+    const noTextInstruction = "Photographic background image, no text, no words, no numbers, no logos, no typography anywhere in the image: ";
     const parts: Record<string, unknown>[] = [];
     if (refImage) {
       parts.push({ inlineData: { mimeType: refImage.mimeType, data: refImage.data } });
-      parts.push({ text: `Use the attached image as a base/reference (e.g. site photo, product, or logo) and incorporate it into this design: ${prompt}` });
+      parts.push({ text: `Use the attached image as a base/reference (e.g. site photo, product, or logo). ${noTextInstruction}${prompt}` });
     } else {
-      parts.push({ text: prompt });
+      parts.push({ text: `${noTextInstruction}${prompt}` });
     }
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${IMAGE_MODEL}:generateContent?key=${GEMINI_KEY}`,
@@ -117,21 +121,17 @@ async function generateWithNanoBanana(
 }
 
 function pollinationsUrl(prompt: string, seed: number): string {
-  const encoded = encodeURIComponent(prompt);
-  return `https://image.pollinations.ai/prompt/${encoded}?width=800&height=1131&seed=${seed}&nologo=true&enhance=true&model=flux`;
+  const encoded = encodeURIComponent(`photographic background, no text, no logos, ${prompt}`);
+  return `https://image.pollinations.ai/prompt/${encoded}?width=1000&height=1000&seed=${seed}&nologo=true&enhance=true&model=flux`;
 }
 
-async function uploadToStorage(
+async function uploadBuffer(
   supabase: Awaited<ReturnType<typeof createServerClient>>,
-  base64DataUrl: string, briefId: string, version: number
+  buffer: Buffer, contentType: string, briefId: string, filename: string
 ): Promise<{ url: string | null; err: string | null }> {
   try {
-    const [meta, b64] = base64DataUrl.split(",");
-    const mime = meta.match(/data:(.*);base64/)?.[1] || "image/png";
-    const ext = mime.split("/")[1] || "png";
-    const buffer = Buffer.from(b64, "base64");
-    const path = `${briefId}/concept-${version}.${ext}`;
-    const { error } = await supabase.storage.from("designs").upload(path, buffer, { contentType: mime, upsert: true });
+    const path = `${briefId}/${filename}`;
+    const { error } = await supabase.storage.from("designs").upload(path, buffer, { contentType, upsert: true });
     if (error) return { url: null, err: `storage: ${error.message}` };
     const { data } = supabase.storage.from("designs").getPublicUrl(path);
     return { url: data.publicUrl, err: null };
@@ -152,37 +152,52 @@ export async function POST(req: NextRequest) {
     debug.push(`key_present: ${GEMINI_KEY ? "yes-" + GEMINI_KEY.slice(0, 6) : "MISSING"}`);
 
     await supabase.from("briefs").update({ status: "generating" }).eq("id", briefId);
-    const basePrompt = await buildPrompt(brief);
-    // All 3 concepts use the same user-derived prompt; natural model variation
-    // produces different layouts without us dictating a style.
-    const variants = [basePrompt, basePrompt, basePrompt];
+    const imagePrompt = await buildImagePrompt(brief);
+    const variants = [imagePrompt, imagePrompt, imagePrompt];
 
     const refImage = brief.reference_image_url
       ? await fetchRefImageAsBase64(brief.reference_image_url)
       : null;
     if (brief.reference_image_url && !refImage) debug.push("reference image: failed to fetch, proceeding without it");
 
-    const imageUrls = await Promise.all(variants.map(async (prompt, i) => {
+    // 1. Get a background image per concept (Nano Banana, falling back to Pollinations).
+    const backgrounds = await Promise.all(variants.map(async (prompt, i) => {
       const nano = await generateWithNanoBanana(prompt, refImage);
-      if (nano.img) {
-        const up = await uploadToStorage(supabase, nano.img, briefId, i + 1);
-        if (up.url) { debug.push(`v${i + 1}: nano OK`); return { url: up.url, engine: "nano-banana-2" }; }
-        debug.push(`v${i + 1}: nano img OK but upload failed → ${up.err}`);
-      } else {
-        debug.push(`v${i + 1}: nano failed → ${nano.err}`);
-      }
+      if (nano.img) { debug.push(`v${i + 1}: nano OK`); return { url: nano.img, engine: "nano-banana-2" }; }
+      debug.push(`v${i + 1}: nano failed → ${nano.err}, using pollinations`);
       return { url: pollinationsUrl(prompt, i * 77 + 200), engine: "pollinations" };
     }));
 
-    const inserts = imageUrls.map((img, i) => ({
-      brief_id: briefId, image_url: img.url, ai_prompt: `[${img.engine}] ${variants[i]}`,
+    // 2. Render each background into the industry-appropriate HTML template
+    //    (real text for brand/price/phone — never AI-generated pixels).
+    const htmls = backgrounds.map(bg => renderBrochureHtml(brief, bg.url));
+
+    // 3. Convert each templated page into a print-ready PDF + preview PNG.
+    const pageSize = getPageSizeMm(brief.size);
+    const rendered = await renderManyToPdfAndPng(htmls, pageSize);
+
+    const designs: Array<{ image_url: string; pdf_url: string; engine: string }> = [];
+    for (let i = 0; i < rendered.length; i++) {
+      const r = rendered[i];
+      if ("error" in r) { debug.push(`v${i + 1}: template render failed → ${r.error}`); continue; }
+      const png = await uploadBuffer(supabase, r.png, "image/png", briefId, `concept-${i + 1}.png`);
+      const pdf = await uploadBuffer(supabase, r.pdf, "application/pdf", briefId, `concept-${i + 1}.pdf`);
+      if (!png.url || !pdf.url) { debug.push(`v${i + 1}: upload failed → ${png.err || pdf.err}`); continue; }
+      designs.push({ image_url: png.url, pdf_url: pdf.url, engine: backgrounds[i].engine });
+    }
+
+    if (designs.length === 0) throw new Error("All concepts failed to render. See debug for details.");
+
+    const inserts = designs.map((d, i) => ({
+      brief_id: briefId, image_url: d.image_url, pdf_url: d.pdf_url,
+      ai_prompt: `[${d.engine}] ${imagePrompt}`,
       version_number: i + 1, status: "pending",
     }));
-    const { data: designs, error: designError } = await supabase.from("designs").insert(inserts).select();
+    const { data: insertedDesigns, error: designError } = await supabase.from("designs").insert(inserts).select();
     if (designError) throw new Error(designError.message);
 
     await supabase.from("briefs").update({ status: "designs_ready" }).eq("id", briefId);
-    return NextResponse.json({ success: true, designs, briefId, engine: imageUrls[0].engine, debug });
+    return NextResponse.json({ success: true, designs: insertedDesigns, briefId, debug });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json({ error: "Failed to generate designs", detail: message, debug }, { status: 500 });

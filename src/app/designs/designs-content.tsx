@@ -7,6 +7,7 @@ import { CheckCircle, ArrowLeft, Loader2, Sparkles, Download, X, ZoomIn, Maximiz
 interface Design {
   id: string;
   image_url: string;
+  pdf_url?: string;
   version_number: number;
   status: string;
   ai_prompt: string;
@@ -223,8 +224,8 @@ export default function DesignsContent() {
             })()}
 
             <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-              <a href={designs.find(d => d.id === selected)?.image_url || "#"} download target="_blank" rel="noopener noreferrer" style={{ background: indigo, borderRadius: 10, color: "#fff", fontSize: 14, fontWeight: 600, padding: "13px 24px", textDecoration: "none", display: "flex", alignItems: "center", gap: 8 }}>
-                <Download size={16} /> Download
+              <a href={designs.find(d => d.id === selected)?.pdf_url || designs.find(d => d.id === selected)?.image_url || "#"} download target="_blank" rel="noopener noreferrer" style={{ background: indigo, borderRadius: 10, color: "#fff", fontSize: 14, fontWeight: 600, padding: "13px 24px", textDecoration: "none", display: "flex", alignItems: "center", gap: 8 }}>
+                <Download size={16} /> Download print-ready PDF
               </a>
               <button onClick={() => router.push(`/printers?id=${briefId}`)} style={{ background: green, border: "none", borderRadius: 10, color: "#fff", fontSize: 14, fontWeight: 600, padding: "13px 24px", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 8 }}>
                 Choose a printer
@@ -250,8 +251,8 @@ export default function DesignsContent() {
               <button onClick={() => { setSelected(lightbox.id); setLightbox(null); }} style={{ background: selected === lightbox.id ? green : indigo, border: "none", borderRadius: 8, color: "#fff", fontSize: 13, fontWeight: 600, padding: "9px 18px", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 6 }}>
                 <CheckCircle size={14} /> {selected === lightbox.id ? "Selected" : "Select this design"}
               </button>
-              <a href={lightbox.image_url} download target="_blank" rel="noopener noreferrer" style={{ background: "rgba(255,255,255,.1)", borderRadius: 8, color: "#fff", fontSize: 13, fontWeight: 600, padding: "9px 18px", textDecoration: "none", display: "flex", alignItems: "center", gap: 6 }}>
-                <Download size={14} /> Download
+              <a href={lightbox.pdf_url || lightbox.image_url} download target="_blank" rel="noopener noreferrer" style={{ background: "rgba(255,255,255,.1)", borderRadius: 8, color: "#fff", fontSize: 13, fontWeight: 600, padding: "9px 18px", textDecoration: "none", display: "flex", alignItems: "center", gap: 6 }}>
+                <Download size={14} /> Download PDF
               </a>
             </div>
           </div>
