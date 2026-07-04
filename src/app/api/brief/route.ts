@@ -16,6 +16,7 @@ export async function POST(req: NextRequest) {
         industry: body.industry,
         product_description: body.productDescription,
         target_audience: body.targetAudience,
+        location: body.location,
         key_message: body.keyMessage,
         mood: body.mood,
         primary_colour: body.primaryColour,

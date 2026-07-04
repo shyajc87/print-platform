@@ -9,7 +9,7 @@ interface Brief {
   brand_name: string; industry: string; product_description: string;
   target_audience: string; key_message: string; mood: string;
   primary_colour: string; secondary_colour: string; size: string;
-  quantity?: string; additional_notes?: string;
+  quantity?: string; additional_notes?: string; location?: string;
 }
 
 const SIZE_LABELS: Record<string, string> = {
@@ -21,8 +21,10 @@ const SIZE_LABELS: Record<string, string> = {
   "custom": "custom size",
 };
 
-// Builds the image-generation prompt entirely from what the user entered in the brief.
-// No invented style language, region, or aesthetic is added — only the user's own words and choices.
+// Builds the image-generation prompt from what the user entered in the brief,
+// plus one deliberate default: an Indian-market visual baseline (currency,
+// typography conventions, locally recognizable design cues). Location, if
+// given, comes from the user and takes precedence over this general default.
 function briefToPromptLines(brief: Brief): string {
   const lines = [
     `Brand: ${brief.brand_name}`,
@@ -30,12 +32,16 @@ function briefToPromptLines(brief: Brief): string {
     `Promoting: ${brief.product_description}`,
   ];
   if (brief.target_audience) lines.push(`Target audience: ${brief.target_audience}`);
+  if (brief.location) lines.push(`Location: ${brief.location}`);
   if (brief.key_message) lines.push(`Key message: ${brief.key_message}`);
   if (brief.mood) lines.push(`Mood/style: ${brief.mood}`);
   const colours = [brief.primary_colour, brief.secondary_colour].filter(Boolean).join(", ");
   if (colours) lines.push(`Colours: ${colours}`);
   if (brief.size) lines.push(`Format: ${SIZE_LABELS[brief.size] || brief.size}`);
   if (brief.additional_notes) lines.push(`Additional content to include: ${brief.additional_notes}`);
+  lines.push(
+    `Market default: Indian market — use ₹ (rupee) pricing format if prices appear, typography and visual conventions common in Indian print marketing, and locally relatable imagery${brief.location ? ` for ${brief.location}` : ""}.`
+  );
   return lines.join("\n");
 }
 
@@ -46,7 +52,7 @@ async function buildPrompt(brief: Brief): Promise<string> {
       `https://generativelanguage.googleapis.com/v1beta/models/${TEXT_MODEL}:generateContent?key=${GEMINI_KEY}`,
       { method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: `You are an expert print designer. Convert this brief into an image generation prompt using only the details given below — do not invent a style, region, colour, or theme that isn't in the brief. Output ONLY the prompt, 60-80 words, no quotes.\n${briefText}` }] }],
+          contents: [{ parts: [{ text: `You are an expert print designer. Convert this brief into an image generation prompt using the details below. Follow the brief's own details exactly; the "Market default" line is a deliberate baseline style to apply unless the brief's other details override it. Output ONLY the prompt, 60-80 words, no quotes.\n${briefText}` }] }],
           generationConfig: { maxOutputTokens: 500, thinkingConfig: { thinkingBudget: 0 } },
         }),
       }

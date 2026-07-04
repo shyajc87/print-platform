@@ -37,7 +37,7 @@ export default function BriefPage() {
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
     brandName: "", industry: "real-estate", productDescription: "",
-    targetAudience: "", keyMessage: "", mood: "premium",
+    targetAudience: "", location: "", keyMessage: "", mood: "premium",
     primaryColour: "", secondaryColour: "", size: "a4-bifold",
     quantity: "", deadline: "", additionalNotes: "",
   });
@@ -147,9 +147,13 @@ export default function BriefPage() {
               <textarea style={{ ...inputStyle, minHeight: 88, resize: "none", lineHeight: 1.6 }} placeholder="New residential plotted development in Tambaram, Chennai. DTCP approved, gated community, plots from 600 to 1200 sqft starting at Rs 18 lakhs." value={form.productDescription} onChange={e => set("productDescription", e.target.value)} />
               <div style={{ fontSize: 11, color: "#94a3b8", textAlign: "right", marginTop: 3 }}>{form.productDescription.length} / 500</div>
             </div>
-            <div>
+            <div style={fieldStyle}>
               <label style={labelStyle}>Target audience</label>
               <input style={inputStyle} type="text" placeholder="Middle-income families looking for first home in Chennai suburbs" value={form.targetAudience} onChange={e => set("targetAudience", e.target.value)} />
+            </div>
+            <div>
+              <label style={labelStyle}>Location / city</label>
+              <input style={inputStyle} type="text" placeholder="e.g. OMR, Pudhupakkam, Chennai" value={form.location} onChange={e => set("location", e.target.value)} />
             </div>
           </div>
         </div>
