@@ -223,14 +223,12 @@ export default function DesignsContent() {
             })()}
 
             <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-              {(() => {
-                const approvedDesign = designs.find(d => d.id === selected);
-                return approvedDesign ? (
-                  <a href={approvedDesign.image_url} download target="_blank" rel="noopener noreferrer" style={{ background: indigo, borderRadius: 10, color: "#fff", fontSize: 14, fontWeight: 600, padding: "13px 24px", textDecoration: "none", display: "flex", alignItems: "center", gap: 8 }}>
-                    <Download size={16} /> Download
-                  </a>
-                ) : null;
-              })()}
+              <a href={designs.find(d => d.id === selected)?.image_url || "#"} download target="_blank" rel="noopener noreferrer" style={{ background: indigo, borderRadius: 10, color: "#fff", fontSize: 14, fontWeight: 600, padding: "13px 24px", textDecoration: "none", display: "flex", alignItems: "center", gap: 8 }}>
+                <Download size={16} /> Download
+              </a>
+              <button onClick={() => router.push(`/printers?id=${briefId}`)} style={{ background: green, border: "none", borderRadius: 10, color: "#fff", fontSize: 14, fontWeight: 600, padding: "13px 24px", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 8 }}>
+                Choose a printer
+              </button>
               <button onClick={() => router.push("/dashboard")} style={{ background: "#fff", border: "1.5px solid #e7e5e0", borderRadius: 10, color: "#374151", fontSize: 14, fontWeight: 500, padding: "13px 24px", cursor: "pointer", fontFamily: "inherit" }}>
                 Back to dashboard
               </button>

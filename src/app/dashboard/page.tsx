@@ -116,9 +116,15 @@ export default function DashboardPage() {
 
         <button
           onClick={() => router.push("/brief")}
-          style={{ width: "100%", background: sky, color: "#fff", border: "none", borderRadius: 12, fontSize: 14, fontWeight: 600, padding: "14px", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 24, boxShadow: "0 2px 8px rgba(14,165,233,0.3)" }}
+          style={{ width: "100%", background: sky, color: "#fff", border: "none", borderRadius: 12, fontSize: 14, fontWeight: 600, padding: "14px", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 10, boxShadow: "0 2px 8px rgba(14,165,233,0.3)" }}
         >
           <Plus size={18} /> New project
+        </button>
+        <button
+          onClick={() => router.push("/agencies")}
+          style={{ width: "100%", background: "#fff", color: "#374151", border: "1.5px solid #e2e8f0", borderRadius: 12, fontSize: 13, fontWeight: 600, padding: "12px", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 24 }}
+        >
+          Get a custom designer
         </button>
 
         <div style={{ marginBottom: 12 }}>
