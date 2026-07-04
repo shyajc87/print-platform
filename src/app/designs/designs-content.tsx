@@ -8,6 +8,7 @@ interface Design {
   id: string;
   image_url: string;
   pdf_url?: string;
+  raw_image_url?: string;
   version_number: number;
   status: string;
   ai_prompt: string;
@@ -169,7 +170,7 @@ export default function DesignsContent() {
                   <div style={{ background: navy, padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                     <span style={{ fontSize: 12, fontWeight: 600, color: "#9ca3af" }}>Concept {design.version_number}</span>
                     <button
-                      onClick={(e) => { e.stopPropagation(); router.push(`/editor?id=${briefId}&bg=${encodeURIComponent(design.image_url)}`); }}
+                      onClick={(e) => { e.stopPropagation(); router.push(`/editor?id=${briefId}&bg=${encodeURIComponent(design.raw_image_url || design.image_url)}`); }}
                       style={{ background: "none", border: "1px solid #e2e8f0", borderRadius: 6, fontSize: 10, fontWeight: 600, color: "#7c3aed", padding: "3px 8px", cursor: "pointer", fontFamily: "inherit" }}
                     >
                       Customize in editor

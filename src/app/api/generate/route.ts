@@ -31,6 +31,22 @@ async function uploadBuffer(
   }
 }
 
+// The AI image comes in either as a base64 data URL (Nano Banana) or a remote
+// URL (Pollinations fallback). Either way, we pull the raw bytes down and
+// re-upload to OUR OWN storage — this is what lets "Customize in editor"
+// later load the clean, untouched photo instead of the composited design.
+async function toBufferAndType(url: string): Promise<{ buffer: Buffer; contentType: string }> {
+  if (url.startsWith("data:")) {
+    const [meta, b64] = url.split(",");
+    const contentType = meta.match(/data:(.*);base64/)?.[1] || "image/png";
+    return { buffer: Buffer.from(b64, "base64"), contentType };
+  }
+  const res = await fetch(url);
+  const contentType = res.headers.get("content-type") || "image/jpeg";
+  const buffer = Buffer.from(await res.arrayBuffer());
+  return { buffer, contentType };
+}
+
 export async function POST(req: NextRequest) {
   const debug: string[] = [];
   try {
@@ -58,24 +74,37 @@ export async function POST(req: NextRequest) {
       return { url: pollinationsUrl(prompt, i * 77 + 200), engine: "pollinations" };
     }));
 
+    // Save the RAW background image (untouched, before any text/template is
+    // composited on top) — this is what the editor should start from.
+    const rawUploads = await Promise.all(backgrounds.map(async (bg, i) => {
+      try {
+        const { buffer, contentType } = await toBufferAndType(bg.url);
+        const ext = contentType.includes("png") ? "png" : "jpg";
+        return await uploadBuffer(supabase, buffer, contentType, briefId, `raw-${i + 1}.${ext}`);
+      } catch (e) {
+        return { url: null, err: e instanceof Error ? e.message : "raw upload failed" };
+      }
+    }));
+
     const htmls = backgrounds.map(bg => renderBrochureHtml(brief as Brief, bg.url));
     const pageSize = getPageSizeMm(brief.size);
     const rendered = await renderManyToPdfAndPng(htmls, pageSize);
 
-    const designs: Array<{ image_url: string; pdf_url: string; engine: string }> = [];
+    const designs: Array<{ image_url: string; pdf_url: string; raw_image_url: string | null; engine: string }> = [];
     for (let i = 0; i < rendered.length; i++) {
       const r = rendered[i];
       if ("error" in r) { debug.push(`v${i + 1}: template render failed → ${r.error}`); continue; }
       const png = await uploadBuffer(supabase, r.png, "image/png", briefId, `concept-${i + 1}.png`);
       const pdf = await uploadBuffer(supabase, r.pdf, "application/pdf", briefId, `concept-${i + 1}.pdf`);
       if (!png.url || !pdf.url) { debug.push(`v${i + 1}: upload failed → ${png.err || pdf.err}`); continue; }
-      designs.push({ image_url: png.url, pdf_url: pdf.url, engine: backgrounds[i].engine });
+      if (!rawUploads[i]?.url) debug.push(`v${i + 1}: raw image upload failed → ${rawUploads[i]?.err}`);
+      designs.push({ image_url: png.url, pdf_url: pdf.url, raw_image_url: rawUploads[i]?.url || null, engine: backgrounds[i].engine });
     }
 
     if (designs.length === 0) throw new Error("All concepts failed to render. See debug for details.");
 
     const inserts = designs.map((d, i) => ({
-      brief_id: briefId, image_url: d.image_url, pdf_url: d.pdf_url,
+      brief_id: briefId, image_url: d.image_url, pdf_url: d.pdf_url, raw_image_url: d.raw_image_url,
       ai_prompt: `[${d.engine}] ${imagePrompt}`,
       version_number: i + 1, status: "pending",
     }));

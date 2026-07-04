@@ -87,31 +87,26 @@ function heroTemplate(b: TemplateBrief, imageDataUrl: string): string {
   const bullets = bulletsFromText(b.product_description);
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
     ${baseStyles(colourVars("--accent", "#1e293b", b.primary_colour), colourVars("--accent2", "#0ea5e9", b.secondary_colour))}
-    .hero { flex: 0 0 58%; background-image: url('${imageDataUrl}'); background-size: cover; background-position: center; position: relative; }
-    .hero::after { content: ""; position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.65), rgba(0,0,0,0) 55%); }
-    .hero-text { position: absolute; left: 6%; right: 6%; bottom: 5%; color: #fff; }
-    .hero-text h1 { font-size: 4.2vh; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
-    .hero-text p { font-size: 2vh; opacity: 0.92; margin-top: 0.5vh; }
-    .body { flex: 1; padding: 5% 6%; display: flex; flex-direction: column; justify-content: center; gap: 1.6vh; }
-    .body h2 { font-size: 2.6vh; color: var(--accent); font-weight: 700; }
-    ul { list-style: none; display: flex; flex-direction: column; gap: 1vh; }
-    li { font-size: 1.9vh; color: #1f2937; padding-left: 1.6em; position: relative; }
+    .hero { position: absolute; inset: 0; background-image: url('${imageDataUrl}'); background-size: cover; background-position: center; }
+    .scrim { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.55) 32%, rgba(0,0,0,0) 62%); }
+    .overlay { position: absolute; left: 0; right: 0; bottom: 0; padding: 6% 6% 3%; color: #fff; }
+    .overlay h1 { font-size: 4.4vh; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
+    .overlay .subtag { font-size: 2vh; opacity: 0.92; margin-top: 0.6vh; }
+    .overlay .meta { font-size: 1.6vh; opacity: 0.85; margin-top: 1.2vh; text-transform: uppercase; letter-spacing: 0.5px; }
+    ul { list-style: none; display: flex; flex-direction: column; gap: 0.8vh; margin-top: 1.8vh; }
+    li { font-size: 1.9vh; padding-left: 1.6em; position: relative; }
     li::before { content: "—"; position: absolute; left: 0; color: var(--accent2); font-weight: 700; }
+    .accent-line { height: 0.8vh; background: var(--accent2); margin-top: 2.2vh; width: 22%; }
   </style></head><body>
     <div class="page">
-      <div class="hero">
-        <div class="hero-text">
-          <h1>${escapeHtml(b.brand_name)}</h1>
-          ${b.key_message ? `<p>${escapeHtml(b.key_message)}</p>` : ""}
-        </div>
-      </div>
-      <div class="body">
-        <h2>${escapeHtml(b.industry.replace("-", " "))}${b.location ? ` · ${escapeHtml(b.location)}` : ""}</h2>
+      <div class="hero"></div>
+      <div class="scrim"></div>
+      <div class="overlay">
+        <h1>${escapeHtml(b.brand_name)}</h1>
+        ${b.key_message ? `<div class="subtag">${escapeHtml(b.key_message)}</div>` : ""}
         <ul>${bullets.map(x => `<li>${escapeHtml(x)}</li>`).join("")}</ul>
-      </div>
-      <div class="footer-strip">
-        <span class="brand">${escapeHtml(b.brand_name)}</span>
-        <span class="tag">${escapeHtml(b.additional_notes || b.target_audience || "")}</span>
+        <div class="accent-line"></div>
+        <div class="meta">${escapeHtml(b.industry.replace("-", " "))}${b.location ? ` · ${escapeHtml(b.location)}` : ""} · ${escapeHtml(b.additional_notes || b.target_audience || "")}</div>
       </div>
     </div>
   </body></html>`;
