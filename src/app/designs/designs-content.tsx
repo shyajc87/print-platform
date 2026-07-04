@@ -205,16 +205,32 @@ export default function DesignsContent() {
         )}
 
         {approved && (
-          <div style={{ textAlign: "center", padding: "80px 0" }}>
-            <div style={{ width: 64, height: 64, borderRadius: "50%", background: green, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px", boxShadow: "0 4px 20px rgba(16,185,129,.4)" }}>
+          <div style={{ textAlign: "center", padding: "48px 0" }}>
+            <div style={{ width: 64, height: 64, borderRadius: "50%", background: green, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px", boxShadow: "0 4px 20px rgba(16,185,129,.4)" }}>
               <CheckCircle size={28} color="#fff" />
             </div>
             <h2 style={{ fontSize: 24, fontWeight: 700, color: navy, marginBottom: 8 }}>Design approved!</h2>
-            <p style={{ fontSize: 15, color: "#6b7280", marginBottom: 40 }}>Your selected concept has been approved and sent to the print queue.</p>
+            <p style={{ fontSize: 15, color: "#6b7280", marginBottom: 32 }}>Your selected concept has been approved and sent to the print queue.</p>
+
+            {(() => {
+              const approvedDesign = designs.find(d => d.id === selected);
+              if (!approvedDesign) return null;
+              return (
+                <div style={{ maxWidth: 320, margin: "0 auto 32px", borderRadius: 16, overflow: "hidden", border: "2px solid " + green, boxShadow: "0 4px 20px rgba(0,0,0,.1)", cursor: "zoom-in" }} onClick={() => setLightbox(approvedDesign)}>
+                  <img src={approvedDesign.image_url} alt="Approved design" style={{ width: "100%", display: "block" }} />
+                </div>
+              );
+            })()}
+
             <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-              <button style={{ background: indigo, border: "none", borderRadius: 10, color: "#fff", fontSize: 14, fontWeight: 600, padding: "13px 24px", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, fontFamily: "inherit" }}>
-                <Download size={16} /> Download PDF
-              </button>
+              {(() => {
+                const approvedDesign = designs.find(d => d.id === selected);
+                return approvedDesign ? (
+                  <a href={approvedDesign.image_url} download target="_blank" rel="noopener noreferrer" style={{ background: indigo, borderRadius: 10, color: "#fff", fontSize: 14, fontWeight: 600, padding: "13px 24px", textDecoration: "none", display: "flex", alignItems: "center", gap: 8 }}>
+                    <Download size={16} /> Download
+                  </a>
+                ) : null;
+              })()}
               <button onClick={() => router.push("/dashboard")} style={{ background: "#fff", border: "1.5px solid #e7e5e0", borderRadius: 10, color: "#374151", fontSize: 14, fontWeight: 500, padding: "13px 24px", cursor: "pointer", fontFamily: "inherit" }}>
                 Back to dashboard
               </button>

@@ -73,7 +73,7 @@ export default function DashboardPage() {
       `}</style>
 
       <div style={{ background: navy, padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #0f172a" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div onClick={() => router.push("/dashboard")} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
           <div style={{ width: 32, height: 32, borderRadius: 8, background: "#e0f2fe", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <Printer size={17} color={sky} />
           </div>
@@ -152,7 +152,7 @@ export default function DashboardPage() {
             {briefs.map(brief => {
               const cfg = statusConfig[brief.status] || statusConfig.pending;
               const Icon = cfg.Icon;
-              const isClickable = brief.status === "designs_ready";
+              const isClickable = brief.status === "designs_ready" || brief.status === "approved";
               return (
                 <div
                   key={brief.id}
