@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 import { CheckCircle, ArrowLeft, Loader2, Sparkles, Download, X, ZoomIn, Maximize2 } from "lucide-react";
 
 interface Design {
@@ -22,11 +23,42 @@ export default function DesignsContent() {
   const [error, setError] = useState("");
   const [approved, setApproved] = useState(false);
   const [lightbox, setLightbox] = useState<Design | null>(null);
+  const [checking, setChecking] = useState(true);
+  const supabase = createClient();
 
   useEffect(() => {
     if (!briefId) { router.push("/brief"); return; }
-    generateDesigns();
+    loadOrGenerate();
   }, [briefId]);
+
+  const loadOrGenerate = async () => {
+    setChecking(true);
+    try {
+      const { data: existing, error: fetchErr } = await supabase
+        .from("designs")
+        .select("*")
+        .eq("brief_id", briefId)
+        .order("version_number", { ascending: true });
+
+      if (fetchErr) throw fetchErr;
+
+      if (existing && existing.length > 0) {
+        // Designs already generated for this brief — show them, don't regenerate.
+        setDesigns(existing);
+        const approvedDesign = existing.find((d: Design) => d.status === "approved");
+        if (approvedDesign) { setSelected(approvedDesign.id); setApproved(true); }
+        setChecking(false);
+        return;
+      }
+
+      setChecking(false);
+      await generateDesigns();
+    } catch (err) {
+      console.error(err);
+      setChecking(false);
+      await generateDesigns();
+    }
+  };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setLightbox(null);
@@ -51,6 +83,19 @@ export default function DesignsContent() {
       setError("Failed to generate designs. Please try again.");
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const approveDesign = async () => {
+    if (!selected || !briefId) return;
+    try {
+      await supabase.from("designs").update({ status: "pending" }).eq("brief_id", briefId);
+      await supabase.from("designs").update({ status: "approved" }).eq("id", selected);
+      await supabase.from("briefs").update({ status: "approved" }).eq("id", briefId);
+      setApproved(true);
+    } catch (err) {
+      console.error(err);
+      setError("Failed to save approval. Please try again.");
     }
   };
 
@@ -85,7 +130,7 @@ export default function DesignsContent() {
 
       <div style={{ maxWidth: 1000, margin: "0 auto", padding: "36px 24px" }}>
 
-        {generating && (
+        {(generating || checking) && (
           <div style={{ textAlign: "center", padding: "80px 0" }}>
             <div style={{ width: 56, height: 56, borderRadius: 16, background: indigo, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px", boxShadow: "0 4px 16px rgba(79,70,229,.4)" }}>
               <Sparkles size={24} color="#fff" />
@@ -110,7 +155,7 @@ export default function DesignsContent() {
           </div>
         )}
 
-        {!generating && !error && designs.length > 0 && !approved && (
+        {!generating && !checking && !error && designs.length > 0 && !approved && (
           <>
             <div style={{ marginBottom: 28 }}>
               <h2 style={{ fontSize: 24, fontWeight: 700, color: navy, marginBottom: 6 }}>Choose your direction</h2>
@@ -152,7 +197,7 @@ export default function DesignsContent() {
                 <div style={{ fontSize: 12, color: "#9ca3af" }}>{selected ? "Concept selected" : "Select a concept to continue"}</div>
                 <div style={{ fontSize: 13, fontWeight: 600, color: selected ? green : "#9ca3af", marginTop: 2 }}>{selected ? "✦ Ready to approve" : "Tap 'Select this' on any design"}</div>
               </div>
-              <button onClick={() => selected && setApproved(true)} disabled={!selected} style={{ background: selected ? green : "#374151", border: "none", borderRadius: 10, color: selected ? "#fff" : "#6b7280", fontSize: 14, fontWeight: 600, padding: "13px 24px", cursor: selected ? "pointer" : "not-allowed", display: "flex", alignItems: "center", gap: 8, fontFamily: "inherit" }}>
+              <button onClick={approveDesign} disabled={!selected} style={{ background: selected ? green : "#374151", border: "none", borderRadius: 10, color: selected ? "#fff" : "#6b7280", fontSize: 14, fontWeight: 600, padding: "13px 24px", cursor: selected ? "pointer" : "not-allowed", display: "flex", alignItems: "center", gap: 8, fontFamily: "inherit" }}>
                 <CheckCircle size={16} /> Approve this design
               </button>
             </div>
