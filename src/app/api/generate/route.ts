@@ -10,6 +10,7 @@ interface Brief {
   target_audience: string; key_message: string; mood: string;
   primary_colour: string; secondary_colour: string; size: string;
   quantity?: string; additional_notes?: string; location?: string;
+  reference_image_url?: string | null;
 }
 
 const SIZE_LABELS: Record<string, string> = {
@@ -67,13 +68,35 @@ async function buildPrompt(brief: Brief): Promise<string> {
   }
 }
 
-async function generateWithNanoBanana(prompt: string): Promise<{ img: string | null; err: string | null }> {
+async function fetchRefImageAsBase64(url: string): Promise<{ data: string; mimeType: string } | null> {
   try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const mimeType = res.headers.get("content-type") || "image/jpeg";
+    const buf = Buffer.from(await res.arrayBuffer());
+    return { data: buf.toString("base64"), mimeType };
+  } catch {
+    return null;
+  }
+}
+
+async function generateWithNanoBanana(
+  prompt: string,
+  refImage: { data: string; mimeType: string } | null
+): Promise<{ img: string | null; err: string | null }> {
+  try {
+    const parts: Record<string, unknown>[] = [];
+    if (refImage) {
+      parts.push({ inlineData: { mimeType: refImage.mimeType, data: refImage.data } });
+      parts.push({ text: `Use the attached image as a base/reference (e.g. site photo, product, or logo) and incorporate it into this design: ${prompt}` });
+    } else {
+      parts.push({ text: prompt });
+    }
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${IMAGE_MODEL}:generateContent?key=${GEMINI_KEY}`,
       { method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
+          contents: [{ parts }],
           generationConfig: { responseModalities: ["IMAGE"] },
         }),
       }
@@ -134,8 +157,13 @@ export async function POST(req: NextRequest) {
     // produces different layouts without us dictating a style.
     const variants = [basePrompt, basePrompt, basePrompt];
 
+    const refImage = brief.reference_image_url
+      ? await fetchRefImageAsBase64(brief.reference_image_url)
+      : null;
+    if (brief.reference_image_url && !refImage) debug.push("reference image: failed to fetch, proceeding without it");
+
     const imageUrls = await Promise.all(variants.map(async (prompt, i) => {
-      const nano = await generateWithNanoBanana(prompt);
+      const nano = await generateWithNanoBanana(prompt, refImage);
       if (nano.img) {
         const up = await uploadToStorage(supabase, nano.img, briefId, i + 1);
         if (up.url) { debug.push(`v${i + 1}: nano OK`); return { url: up.url, engine: "nano-banana-2" }; }

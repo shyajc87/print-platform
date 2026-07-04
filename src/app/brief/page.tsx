@@ -1,7 +1,8 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Sparkles, Loader2, Building2, Soup, Pill, GraduationCap, Shirt, Coins, Cpu, MoreHorizontal, Palette, Printer } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import { ArrowLeft, Sparkles, Loader2, Building2, Soup, Pill, GraduationCap, Shirt, Coins, Cpu, MoreHorizontal, Palette, Printer, Upload, X } from "lucide-react";
 
 const INDUSTRIES = [
   { value: "real-estate", label: "Real Estate", Icon: Building2 },
@@ -34,7 +35,10 @@ const SIZES = [
 
 export default function BriefPage() {
   const router = useRouter();
+  const supabase = createClient();
   const [loading, setLoading] = useState(false);
+  const [refImage, setRefImage] = useState<File | null>(null);
+  const [refImagePreview, setRefImagePreview] = useState<string>("");
   const [form, setForm] = useState({
     brandName: "", industry: "real-estate", productDescription: "",
     targetAudience: "", location: "", keyMessage: "", mood: "premium",
@@ -43,15 +47,32 @@ export default function BriefPage() {
   });
 
   const set = (f: string, v: string) => setForm(p => ({ ...p, [f]: v }));
-  const canSubmit = form.brandName && form.productDescription;
+  const canSubmit = form.brandName && form.productDescription && form.quantity;
+
+  const onPickImage = (file: File | null) => {
+    setRefImage(file);
+    if (file) setRefImagePreview(URL.createObjectURL(file));
+    else setRefImagePreview("");
+  };
 
   const handleSubmit = async () => {
     setLoading(true);
     try {
+      let referenceImageUrl = "";
+      if (refImage) {
+        const { data: { user } } = await supabase.auth.getUser();
+        const ext = refImage.name.split(".").pop() || "jpg";
+        const path = `${user?.id}/${Date.now()}.${ext}`;
+        const { error: upErr } = await supabase.storage.from("references").upload(path, refImage, { upsert: true });
+        if (upErr) throw new Error(`Reference image upload failed: ${upErr.message}`);
+        const { data: pub } = supabase.storage.from("references").getPublicUrl(path);
+        referenceImageUrl = pub.publicUrl;
+      }
+
       const res = await fetch("/api/brief", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, referenceImageUrl }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -194,6 +215,24 @@ export default function BriefPage() {
                 <input style={inputStyle} type="text" placeholder="Secondary — e.g. Gold" value={form.secondaryColour} onChange={e => set("secondaryColour", e.target.value)} />
               </div>
             </div>
+            <div style={{ marginTop: 16 }}>
+              <label style={labelStyle}>Reference image (optional)</label>
+              <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 8 }}>Upload a site photo, product shot, or logo — AI will use it as a base or reference when generating the design.</div>
+              {refImagePreview ? (
+                <div style={{ position: "relative", display: "inline-block" }}>
+                  <img src={refImagePreview} alt="Reference preview" style={{ width: 140, height: 140, objectFit: "cover", borderRadius: 10, border: "1.5px solid #e2e8f0" }} />
+                  <button onClick={() => onPickImage(null)} style={{ position: "absolute", top: -8, right: -8, background: "#ef4444", border: "2px solid #fff", borderRadius: "50%", width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+                    <X size={12} color="#fff" />
+                  </button>
+                </div>
+              ) : (
+                <label style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, width: 140, height: 140, border: "1.5px dashed #cbd5e1", borderRadius: 10, cursor: "pointer", background: "#f8fafc" }}>
+                  <Upload size={20} color="#94a3b8" />
+                  <span style={{ fontSize: 11, color: "#94a3b8" }}>Upload image</span>
+                  <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => onPickImage(e.target.files?.[0] || null)} />
+                </label>
+              )}
+            </div>
           </div>
         </div>
 
@@ -222,7 +261,7 @@ export default function BriefPage() {
             </div>
             <div className="brief-grid-2" style={{ marginBottom: 16 }}>
               <div>
-                <label style={labelStyle}>Print quantity</label>
+                <label style={labelStyle}>Print quantity *</label>
                 <select style={{ ...inputStyle, cursor: "pointer" }} value={form.quantity} onChange={e => set("quantity", e.target.value)}>
                   <option value="">Select quantity</option>
                   {["250 copies","500 copies","1,000 copies","2,500 copies","5,000 copies","10,000+ copies"].map(q => <option key={q}>{q}</option>)}
@@ -245,7 +284,7 @@ export default function BriefPage() {
         <div>
           <div style={{ fontSize: 12, color: "#64748b" }}>{canSubmit ? "All required fields complete" : "Fill required fields to continue"}</div>
           <div style={{ fontSize: 13, fontWeight: 600, color: canSubmit ? green : "#475569", marginTop: 2 }}>
-            {canSubmit ? "✦ Ready to generate AI designs" : "Brand name and description required"}
+            {canSubmit ? "✦ Ready to generate AI designs" : "Brand name, description, and quantity required"}
           </div>
         </div>
         <button className="brief-footer-btn" onClick={handleSubmit} disabled={!canSubmit || loading} style={{ background: canSubmit ? sky : "#334155", border: "none", borderRadius: 10, color: canSubmit ? "#fff" : "#64748b", fontSize: 14, fontWeight: 600, padding: "13px 24px", cursor: canSubmit ? "pointer" : "not-allowed", display: "flex", alignItems: "center", gap: 8, fontFamily: "inherit", boxShadow: canSubmit ? "0 2px 8px rgba(14,165,233,0.4)" : "none" }}>

@@ -2,7 +2,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { Plus, FileText, Sparkles, CheckCircle, Clock, LogOut, Printer, ChevronRight } from "lucide-react";
+import { useIsAdmin } from "@/lib/hooks/useIsAdmin";
+import { Plus, FileText, Sparkles, CheckCircle, Clock, LogOut, Printer, ChevronRight, Star, Palette, ShieldCheck } from "lucide-react";
 
 interface Brief {
   id: string;
@@ -12,6 +13,9 @@ interface Brief {
   status: string;
   created_at: string;
 }
+
+interface PrinterSummary { id: string; name: string; rating: number; }
+interface AgencySummary { id: string; name: string; rating: number; }
 
 const statusConfig: Record<string, { label: string; color: string; bg: string; Icon: React.ElementType }> = {
   pending:       { label: "Brief submitted", color: "#92400e", bg: "#fef3c7", Icon: Clock },
@@ -23,8 +27,11 @@ const statusConfig: Record<string, { label: string; color: string; bg: string; I
 export default function DashboardPage() {
   const router = useRouter();
   const supabase = createClient();
+  const isAdmin = useIsAdmin();
   const [user, setUser] = useState<{ email?: string; user_metadata?: { full_name?: string } } | null>(null);
   const [briefs, setBriefs] = useState<Brief[]>([]);
+  const [printers, setPrinters] = useState<PrinterSummary[]>([]);
+  const [agencies, setAgencies] = useState<AgencySummary[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -38,6 +45,15 @@ export default function DashboardPage() {
         .order("created_at", { ascending: false })
         .limit(20);
       setBriefs(data || []);
+
+      const { data: printerData } = await supabase
+        .from("printers").select("id, name, rating").order("rating", { ascending: false }).limit(5);
+      setPrinters(printerData || []);
+
+      const { data: agencyData } = await supabase
+        .from("design_agencies").select("id, name, rating").order("rating", { ascending: false }).limit(5);
+      setAgencies(agencyData || []);
+
       setLoading(false);
     };
     load();
@@ -63,10 +79,16 @@ export default function DashboardPage() {
     <div style={{ background: "#f0f4f8", minHeight: "100vh", fontFamily: "Inter, system-ui, sans-serif" }}>
       <style>{`
         .dash-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 20px; }
-        .dash-content { max-width: 680px; margin: 0 auto; padding: 28px 20px; }
+        .dash-layout { max-width: 960px; margin: 0 auto; padding: 28px 20px; display: flex; gap: 24px; align-items: flex-start; }
+        .dash-sidebar { width: 240px; flex-shrink: 0; display: flex; flex-direction: column; gap: 16px; }
+        .dash-content { flex: 1; min-width: 0; padding: 0; }
+        .sidebar-item:hover { background: #f0f9ff !important; }
+        @media (max-width: 768px) {
+          .dash-layout { flex-direction: column; padding: 20px 16px; }
+          .dash-sidebar { width: 100%; }
+        }
         @media (max-width: 480px) {
           .dash-stats { grid-template-columns: 1fr 1fr; }
-          .dash-content { padding: 20px 16px; }
           .project-row { flex-direction: column; align-items: flex-start !important; gap: 10px; }
           .project-badge-wrap { align-self: flex-start; }
         }
@@ -82,6 +104,11 @@ export default function DashboardPage() {
           </span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          {isAdmin && (
+            <button onClick={() => router.push("/admin/printers")} style={{ background: "none", border: "1px solid #334155", borderRadius: 8, cursor: "pointer", color: "#94a3b8", display: "flex", alignItems: "center", gap: 5, fontSize: 12, fontFamily: "inherit", padding: "5px 10px" }}>
+              <ShieldCheck size={13} /> Admin
+            </button>
+          )}
           <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#e0f2fe", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 600, color: sky }}>
             {initials}
           </div>
@@ -92,7 +119,38 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="dash-content">
+      <div className="dash-layout">
+        <aside className="dash-sidebar">
+          <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #e2e8f0", overflow: "hidden" }}>
+            <div style={{ padding: "12px 14px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: 8 }}>
+              <Printer size={14} color={sky} />
+              <span style={{ fontSize: 12, fontWeight: 700, color: "#0f172a" }}>Print companies</span>
+            </div>
+            {printers.map(p => (
+              <div key={p.id} onClick={() => router.push("/printers")} className="sidebar-item" style={{ padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", borderBottom: "1px solid #f8fafc" }}>
+                <span style={{ fontSize: 13, color: "#374151", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</span>
+                <span style={{ fontSize: 11, color: "#94a3b8", display: "flex", alignItems: "center", gap: 2, flexShrink: 0 }}><Star size={10} fill="#f59e0b" color="#f59e0b" /> {p.rating}</span>
+              </div>
+            ))}
+            <div onClick={() => router.push("/printers")} style={{ padding: "10px 14px", fontSize: 12, color: sky, fontWeight: 600, cursor: "pointer" }}>View all →</div>
+          </div>
+
+          <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #e2e8f0", overflow: "hidden" }}>
+            <div style={{ padding: "12px 14px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: 8 }}>
+              <Palette size={14} color="#8b5cf6" />
+              <span style={{ fontSize: 12, fontWeight: 700, color: "#0f172a" }}>Custom designers</span>
+            </div>
+            {agencies.map(a => (
+              <div key={a.id} onClick={() => router.push("/agencies")} className="sidebar-item" style={{ padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", borderBottom: "1px solid #f8fafc" }}>
+                <span style={{ fontSize: 13, color: "#374151", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</span>
+                <span style={{ fontSize: 11, color: "#94a3b8", display: "flex", alignItems: "center", gap: 2, flexShrink: 0 }}><Star size={10} fill="#f59e0b" color="#f59e0b" /> {a.rating}</span>
+              </div>
+            ))}
+            <div onClick={() => router.push("/agencies")} style={{ padding: "10px 14px", fontSize: 12, color: sky, fontWeight: 600, cursor: "pointer" }}>View all →</div>
+          </div>
+        </aside>
+
+        <div className="dash-content">
         <div style={{ marginBottom: 24 }}>
           <h1 style={{ fontSize: 22, fontWeight: 600, color: "#0f172a", letterSpacing: "-0.3px" }}>
             {greeting}, {name.split(" ")[0]}
@@ -191,6 +249,7 @@ export default function DashboardPage() {
             })}
           </div>
         )}
+        </div>
       </div>
     </div>
   );
