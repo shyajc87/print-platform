@@ -179,6 +179,12 @@ export default function DashboardPage() {
           <Plus size={18} /> New project
         </button>
         <button
+          onClick={() => router.push("/editor")}
+          style={{ width: "100%", background: "#fff", color: "#7c3aed", border: "1.5px solid #ddd6fe", borderRadius: 12, fontSize: 13, fontWeight: 600, padding: "12px", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 10 }}
+        >
+          Design from scratch
+        </button>
+        <button
           onClick={() => router.push("/agencies")}
           style={{ width: "100%", background: "#fff", color: "#374151", border: "1.5px solid #e2e8f0", borderRadius: 12, fontSize: 13, fontWeight: 600, padding: "12px", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 24 }}
         >

@@ -168,6 +168,12 @@ export default function DesignsContent() {
                 <div key={design.id} className="design-card" style={{ borderRadius: 16, border: `2px solid ${selected === design.id ? indigo : "#e7e5e0"}`, overflow: "hidden", background: "#fff", boxShadow: selected === design.id ? "0 4px 20px rgba(79,70,229,.25)" : "0 1px 3px rgba(0,0,0,.06)" }}>
                   <div style={{ background: navy, padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                     <span style={{ fontSize: 12, fontWeight: 600, color: "#9ca3af" }}>Concept {design.version_number}</span>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); router.push(`/editor?id=${briefId}&bg=${encodeURIComponent(design.image_url)}`); }}
+                      style={{ background: "none", border: "1px solid #e2e8f0", borderRadius: 6, fontSize: 10, fontWeight: 600, color: "#7c3aed", padding: "3px 8px", cursor: "pointer", fontFamily: "inherit" }}
+                    >
+                      Customize in editor
+                    </button>
                     {selected === design.id && <span style={{ background: indigo, color: "#fff", fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 20 }}>Selected</span>}
                   </div>
 
