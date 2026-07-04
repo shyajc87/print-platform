@@ -17,11 +17,18 @@ export default function AuthPage() {
 
   const handleSignIn = async () => {
     setLoading(true); setError("");
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email: form.email, password: form.password,
     });
     if (error) { setError(error.message); setLoading(false); return; }
-    router.push("/dashboard");
+
+    const { data: profile } = await supabase.from("profiles").select("role").eq("id", data.user.id).maybeSingle();
+    const pending = localStorage.getItem("pendingPartnerSignup");
+    if (profile?.role === "agency" || profile?.role === "printer" || (!profile && pending)) {
+      router.push("/partner/dashboard");
+    } else {
+      router.push("/dashboard");
+    }
     router.refresh();
   };
 
@@ -156,6 +163,9 @@ export default function AuthPage() {
 
         <div style={s.bottomLink}>
           {tab === "signin" ? <>Don't have an account? <button onClick={() => setTab("signup")} style={{ background: "none", border: "none", cursor: "pointer", color: "#0ea5e9", fontSize: 13, fontWeight: 500, fontFamily: "inherit" }}>Create one</button></> : <>Already have an account? <button onClick={() => setTab("signin")} style={{ background: "none", border: "none", cursor: "pointer", color: "#0ea5e9", fontSize: 13, fontWeight: 500, fontFamily: "inherit" }}>Sign in</button></>}
+        </div>
+        <div style={{ ...s.bottomLink, marginTop: 12, fontSize: 12 }}>
+          Design agency or print company? <button onClick={() => router.push("/partner-signup")} style={{ background: "none", border: "none", cursor: "pointer", color: "#8b5cf6", fontSize: 12, fontWeight: 500, fontFamily: "inherit" }}>Partner with us</button>
         </div>
       </div>
       <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>

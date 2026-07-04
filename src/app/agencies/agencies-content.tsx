@@ -15,6 +15,14 @@ interface Agency {
   contact_email: string;
 }
 
+interface MyRequest {
+  id: string;
+  message: string;
+  status: string;
+  created_at: string;
+  agency_id: string;
+}
+
 function Stars({ rating }: { rating: number }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
@@ -32,6 +40,7 @@ export default function AgenciesContent() {
   const supabase = createClient();
 
   const [agencies, setAgencies] = useState<Agency[]>([]);
+  const [myRequests, setMyRequests] = useState<MyRequest[]>([]);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState<string | null>(null);
@@ -49,6 +58,12 @@ export default function AgenciesContent() {
         .from("design_agencies").select("*").order("rating", { ascending: false });
       if (err) throw err;
       setAgencies(data || []);
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: mine } = await supabase.from("agency_requests").select("*").eq("user_id", user.id).order("created_at", { ascending: false });
+        setMyRequests(mine || []);
+      }
 
       if (briefId) {
         const { data: brief } = await supabase.from("briefs").select("product_description").eq("id", briefId).single();
@@ -75,12 +90,22 @@ export default function AgenciesContent() {
       }]);
       if (insertErr) throw insertErr;
       setSentTo(prev => ({ ...prev, [agency.id]: true }));
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: mine } = await supabase.from("agency_requests").select("*").eq("user_id", user.id).order("created_at", { ascending: false });
+        setMyRequests(mine || []);
+      }
     } catch (err) {
       console.error(err);
       setError("Failed to send request. Please try again.");
     } finally {
       setSending(null);
     }
+  };
+
+  const respondToRequest = async (id: string, status: string) => {
+    await supabase.from("agency_requests").update({ status }).eq("id", id);
+    setMyRequests(rs => rs.map(r => r.id === id ? { ...r, status } : r));
   };
 
   const navy = "#111827";
@@ -115,6 +140,35 @@ export default function AgenciesContent() {
         </div>
 
         {error && <p style={{ color: "#dc2626", fontSize: 13, marginBottom: 16 }}>{error}</p>}
+        {myRequests.length > 0 && (
+          <div style={{ marginBottom: 28 }}>
+            <h3 style={{ fontSize: 14, fontWeight: 700, color: navy, marginBottom: 10 }}>Your sent requests</h3>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {myRequests.map(r => {
+                const agency = agencies.find(a => a.id === r.agency_id);
+                return (
+                  <div key={r.id} style={{ background: "#fff", border: "1px solid #e7e5e0", borderRadius: 12, padding: 14 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, flexWrap: "wrap", gap: 8 }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: navy }}>{agency?.name || "Agency"}</span>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: "#6b7280", background: "#f3f4f6", padding: "3px 9px", borderRadius: 20, textTransform: "capitalize" }}>{r.status.replace("_", " ")}</span>
+                    </div>
+                    <p style={{ fontSize: 12, color: "#6b7280", marginBottom: r.status === "completed" ? 10 : 0 }}>{r.message}</p>
+                    {r.status === "completed" && (
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <button onClick={() => respondToRequest(r.id, "approved")} style={{ background: green, border: "none", borderRadius: 8, color: "#fff", fontSize: 12, fontWeight: 600, padding: "7px 14px", cursor: "pointer", fontFamily: "inherit" }}>Approve</button>
+                        <button onClick={() => respondToRequest(r.id, "changes_requested")} style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, color: "#374151", fontSize: 12, fontWeight: 600, padding: "7px 14px", cursor: "pointer", fontFamily: "inherit" }}>Request changes</button>
+                      </div>
+                    )}
+                    {r.status === "approved" && (
+                      <button onClick={() => router.push(r.brief_id ? `/printers?id=${r.brief_id}` : "/printers")} style={{ background: indigo, border: "none", borderRadius: 8, color: "#fff", fontSize: 12, fontWeight: 600, padding: "7px 14px", cursor: "pointer", fontFamily: "inherit" }}>Choose a printer</button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {loading && <p style={{ color: "#6b7280", fontSize: 14 }}>Loading designers...</p>}
 
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>

@@ -8,6 +8,7 @@ import { ArrowLeft, Plus, Trash2 } from "lucide-react";
 interface Agency {
   id: string; name: string; city: string; specialty: string;
   rating: number; review_count: number; contact_phone: string; contact_email: string;
+  approved: boolean;
 }
 
 interface AgencyRequest {
@@ -16,6 +17,7 @@ interface AgencyRequest {
 }
 
 const emptyForm = { name: "", city: "", specialty: "", rating: "4.0", review_count: "0", contact_phone: "", contact_email: "" };
+const emptyLoginForm = { businessName: "", city: "", specialty: "", email: "", password: "", contactPhone: "" };
 
 export default function AdminAgenciesPage() {
   const router = useRouter();
@@ -27,6 +29,11 @@ export default function AdminAgenciesPage() {
   const [form, setForm] = useState(emptyForm);
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
+
+  const [loginForm, setLoginForm] = useState(emptyLoginForm);
+  const [loginError, setLoginError] = useState("");
+  const [loginSaving, setLoginSaving] = useState(false);
+  const [createdCreds, setCreatedCreds] = useState<{ email: string; password: string } | null>(null);
 
   useEffect(() => { if (isAdmin) load(); }, [isAdmin]);
 
@@ -55,6 +62,35 @@ export default function AdminAgenciesPage() {
     if (!confirm("Delete this agency?")) return;
     await supabase.from("design_agencies").delete().eq("id", id);
     load();
+  };
+
+  const approveAgency = async (id: string) => {
+    await supabase.from("design_agencies").update({ approved: true }).eq("id", id);
+    load();
+  };
+
+  const createPartnerLogin = async () => {
+    setLoginError(""); setCreatedCreds(null);
+    setLoginSaving(true);
+    try {
+      const res = await fetch("/api/admin/create-partner", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          role: "agency", email: loginForm.email, password: loginForm.password,
+          businessName: loginForm.businessName, city: loginForm.city,
+          specialty: loginForm.specialty, contactPhone: loginForm.contactPhone,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setCreatedCreds({ email: data.email, password: data.password });
+      setLoginForm(emptyLoginForm);
+      load();
+    } catch (err) {
+      setLoginError(err instanceof Error ? err.message : "Failed to create login.");
+    } finally {
+      setLoginSaving(false);
+    }
   };
 
   const updateRequestStatus = async (id: string, status: string) => {
@@ -86,6 +122,42 @@ export default function AdminAgenciesPage() {
       </div>
 
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "32px 24px" }}>
+        {agencies.some(a => !a.approved) && (
+          <>
+            <h2 style={{ fontSize: 20, fontWeight: 700, color: "#92400e", marginBottom: 16 }}>Pending approval</h2>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 32 }}>
+              {agencies.filter(a => !a.approved).map(a => (
+                <div key={a.id} style={{ background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 12, padding: 14, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <div style={{ fontWeight: 600, color: navy, fontSize: 14 }}>{a.name}</div>
+                    <div style={{ fontSize: 12, color: "#6b7280" }}>{a.city} — self-signed up, awaiting approval</div>
+                  </div>
+                  <button onClick={() => approveAgency(a.id)} style={{ background: "#10b981", border: "none", borderRadius: 8, color: "#fff", fontWeight: 600, padding: "8px 16px", cursor: "pointer", fontFamily: "inherit" }}>Approve</button>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        <h2 style={{ fontSize: 20, fontWeight: 700, color: navy, marginBottom: 16 }}>Create an agency login</h2>
+        <div style={{ background: "#fff", border: "1px solid #e7e5e0", borderRadius: 14, padding: 20, marginBottom: 32, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <input placeholder="Business name" value={loginForm.businessName} onChange={e => setLoginForm({ ...loginForm, businessName: e.target.value })} style={{ padding: 10, border: "1px solid #e2e8f0", borderRadius: 8 }} />
+          <input placeholder="City" value={loginForm.city} onChange={e => setLoginForm({ ...loginForm, city: e.target.value })} style={{ padding: 10, border: "1px solid #e2e8f0", borderRadius: 8 }} />
+          <input placeholder="Specialty" value={loginForm.specialty} onChange={e => setLoginForm({ ...loginForm, specialty: e.target.value })} style={{ padding: 10, border: "1px solid #e2e8f0", borderRadius: 8, gridColumn: "1 / -1" }} />
+          <input placeholder="Login email" type="email" value={loginForm.email} onChange={e => setLoginForm({ ...loginForm, email: e.target.value })} style={{ padding: 10, border: "1px solid #e2e8f0", borderRadius: 8 }} />
+          <input placeholder="Temp password (min 6 chars)" value={loginForm.password} onChange={e => setLoginForm({ ...loginForm, password: e.target.value })} style={{ padding: 10, border: "1px solid #e2e8f0", borderRadius: 8 }} />
+          <input placeholder="Contact phone" value={loginForm.contactPhone} onChange={e => setLoginForm({ ...loginForm, contactPhone: e.target.value })} style={{ padding: 10, border: "1px solid #e2e8f0", borderRadius: 8, gridColumn: "1 / -1" }} />
+          {loginError && <div style={{ gridColumn: "1 / -1", color: "#dc2626", fontSize: 12 }}>{loginError}</div>}
+          {createdCreds && (
+            <div style={{ gridColumn: "1 / -1", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, padding: 12, fontSize: 12, color: "#15803d" }}>
+              Login created — share these with the agency: <strong>{createdCreds.email}</strong> / <strong>{createdCreds.password}</strong>
+            </div>
+          )}
+          <button onClick={createPartnerLogin} disabled={loginSaving || !loginForm.businessName || !loginForm.email || loginForm.password.length < 6} style={{ gridColumn: "1 / -1", background: indigo, border: "none", borderRadius: 8, color: "#fff", fontWeight: 600, padding: "10px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+            {loginSaving ? "Creating..." : "Create login & listing"}
+          </button>
+        </div>
+
         <h2 style={{ fontSize: 20, fontWeight: 700, color: navy, marginBottom: 16 }}>Add a design agency</h2>
         <div style={{ background: "#fff", border: "1px solid #e7e5e0", borderRadius: 14, padding: 20, marginBottom: 32, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <input placeholder="Name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} style={{ padding: 10, border: "1px solid #e2e8f0", borderRadius: 8 }} />
@@ -107,7 +179,7 @@ export default function AdminAgenciesPage() {
             <div key={a.id} style={{ background: "#fff", border: "1px solid #e7e5e0", borderRadius: 12, padding: 14, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
                 <div style={{ fontWeight: 600, color: navy, fontSize: 14 }}>{a.name}</div>
-                <div style={{ fontSize: 12, color: "#6b7280" }}>{a.specialty} · {a.city} · ★{a.rating} ({a.review_count})</div>
+                <div style={{ fontSize: 12, color: "#6b7280" }}>{a.specialty} · {a.city} · ★{a.rating} ({a.review_count}) {!a.approved && <span style={{ color: "#92400e" }}>· pending approval</span>}</div>
               </div>
               <button onClick={() => deleteAgency(a.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#dc2626" }}><Trash2 size={16} /></button>
             </div>
@@ -127,6 +199,8 @@ export default function AdminAgenciesPage() {
                   <option value="contacted">Contacted</option>
                   <option value="in_progress">In progress</option>
                   <option value="completed">Completed</option>
+                  <option value="changes_requested">Changes requested</option>
+                  <option value="approved">Approved</option>
                   <option value="declined">Declined</option>
                 </select>
               </div>
