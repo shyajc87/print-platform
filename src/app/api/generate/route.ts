@@ -6,40 +6,18 @@ const TEXT_MODEL = "gemini-2.5-flash";
 const IMAGE_MODEL = "gemini-3.1-flash-image-preview";
 
 interface Brief {
-  brand_name: string;
-  industry: string;
-  product_description: string;
-  target_audience: string;
-  key_message: string;
-  mood: string;
-  primary_colour: string;
-  secondary_colour: string;
-  size: string;
+  brand_name: string; industry: string; product_description: string;
+  target_audience: string; key_message: string; mood: string;
+  primary_colour: string; secondary_colour: string; size: string;
 }
 
-/* ── Step 1: Gemini text model writes the design prompt (free tier) ── */
 async function buildPrompt(brief: Brief): Promise<string> {
   try {
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${TEXT_MODEL}:generateContent?key=${GEMINI_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      { method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: `You are an expert print designer. Convert this brochure brief into a precise image generation prompt. Output ONLY the prompt, 60-80 words, no explanation or quotes. Include visual style, color palette, layout composition, industry imagery.
-
-Brief:
-Brand: ${brief.brand_name}
-Industry: ${brief.industry}
-Promoting: ${brief.product_description}
-Target audience: ${brief.target_audience || "general"}
-Key message: ${brief.key_message || "not specified"}
-Mood: ${brief.mood}
-Colours: ${[brief.primary_colour, brief.secondary_colour].filter(Boolean).join(", ") || "designer's choice"}`
-            }]
-          }],
+          contents: [{ parts: [{ text: `You are an expert print designer. Convert this brief into an image generation prompt. Output ONLY the prompt, 60-80 words, no quotes.\nBrand: ${brief.brand_name}\nIndustry: ${brief.industry}\nPromoting: ${brief.product_description}\nKey message: ${brief.key_message || "n/a"}\nMood: ${brief.mood}\nColours: ${[brief.primary_colour, brief.secondary_colour].filter(Boolean).join(", ") || "designer's choice"}` }] }],
           generationConfig: { maxOutputTokens: 200 },
         }),
       }
@@ -47,96 +25,75 @@ Colours: ${[brief.primary_colour, brief.secondary_colour].filter(Boolean).join("
     const data = await res.json();
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
     if (text) return text.trim();
-    throw new Error("empty");
+    throw new Error("empty text response");
   } catch {
-    // Fallback: rule-based prompt
-    const moodMap: Record<string, string> = {
-      premium: "luxury elegant sophisticated", modern: "clean minimal contemporary",
-      bold: "vibrant high-contrast striking", warm: "friendly approachable inviting",
-      corporate: "professional trustworthy formal", natural: "earthy organic sustainable",
-    };
-    return `${moodMap[brief.mood] || "professional"} brochure design for ${brief.brand_name}, ${brief.industry} industry, ${brief.key_message || brief.product_description}`;
+    const moodMap: Record<string, string> = { premium: "luxury elegant", modern: "clean minimal", bold: "vibrant striking", warm: "friendly warm", corporate: "professional formal", natural: "earthy organic" };
+    return `${moodMap[brief.mood] || "professional"} brochure for ${brief.brand_name}, ${brief.industry}, ${brief.key_message || brief.product_description}`;
   }
 }
 
-/* ── Step 2a: Nano Banana 2 image generation ── */
-async function generateWithNanoBanana(prompt: string): Promise<string | null> {
+async function generateWithNanoBanana(prompt: string): Promise<{ img: string | null; err: string | null }> {
   try {
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${IMAGE_MODEL}:generateContent?key=${GEMINI_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      { method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: `Generate a professional print brochure cover design: ${prompt}. Portrait A4 format, print-ready quality, editorial layout, sharp typography, no watermarks.`
-            }]
-          }],
+          contents: [{ parts: [{ text: `Generate a professional print brochure cover design: ${prompt}. Portrait A4 format, print-ready, editorial layout, sharp typography.` }] }],
           generationConfig: { responseModalities: ["IMAGE"] },
         }),
       }
     );
-    if (!res.ok) return null;
+    if (!res.ok) {
+      const errText = await res.text();
+      return { img: null, err: `HTTP ${res.status}: ${errText.slice(0, 200)}` };
+    }
     const data = await res.json();
     const part = data?.candidates?.[0]?.content?.parts?.find(
       (p: { inlineData?: { data: string; mimeType: string } }) => p.inlineData
     );
-    if (!part?.inlineData?.data) return null;
-    return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-  } catch {
-    return null;
+    if (!part?.inlineData?.data) return { img: null, err: "no inlineData in response" };
+    return { img: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`, err: null };
+  } catch (e) {
+    return { img: null, err: `exception: ${e instanceof Error ? e.message : "unknown"}` };
   }
 }
 
-/* ── Step 2b: Pollinations fallback (free, always works) ── */
 function pollinationsUrl(prompt: string, seed: number): string {
-  const encoded = encodeURIComponent(
-    `Professional print brochure design, ${prompt}, high quality, editorial layout`
-  );
+  const encoded = encodeURIComponent(`Professional print brochure design, ${prompt}, high quality, editorial layout`);
   return `https://image.pollinations.ai/prompt/${encoded}?width=800&height=1131&seed=${seed}&nologo=true&enhance=true&model=flux`;
 }
 
-/* ── Step 3: upload base64 images to Supabase Storage ── */
 async function uploadToStorage(
   supabase: Awaited<ReturnType<typeof createServerClient>>,
-  base64DataUrl: string,
-  briefId: string,
-  version: number
-): Promise<string | null> {
+  base64DataUrl: string, briefId: string, version: number
+): Promise<{ url: string | null; err: string | null }> {
   try {
     const [meta, b64] = base64DataUrl.split(",");
     const mime = meta.match(/data:(.*);base64/)?.[1] || "image/png";
     const ext = mime.split("/")[1] || "png";
     const buffer = Buffer.from(b64, "base64");
     const path = `${briefId}/concept-${version}.${ext}`;
-
-    const { error } = await supabase.storage
-      .from("designs")
-      .upload(path, buffer, { contentType: mime, upsert: true });
-    if (error) return null;
-
+    const { error } = await supabase.storage.from("designs").upload(path, buffer, { contentType: mime, upsert: true });
+    if (error) return { url: null, err: `storage: ${error.message}` };
     const { data } = supabase.storage.from("designs").getPublicUrl(path);
-    return data.publicUrl;
-  } catch {
-    return null;
+    return { url: data.publicUrl, err: null };
+  } catch (e) {
+    return { url: null, err: `upload exception: ${e instanceof Error ? e.message : "unknown"}` };
   }
 }
 
 export async function POST(req: NextRequest) {
+  const debug: string[] = [];
   try {
     const { briefId } = await req.json();
     const supabase = await createServerClient();
 
-    const { data: brief, error: briefError } = await supabase
-      .from("briefs").select("*").eq("id", briefId).single();
+    const { data: brief, error: briefError } = await supabase.from("briefs").select("*").eq("id", briefId).single();
+    if (briefError || !brief) return NextResponse.json({ error: "Brief not found", detail: briefError?.message }, { status: 404 });
 
-    if (briefError || !brief) {
-      return NextResponse.json({ error: "Brief not found" }, { status: 404 });
-    }
+    debug.push(`key_present: ${GEMINI_KEY ? "yes-" + GEMINI_KEY.slice(0, 6) : "MISSING"}`);
 
     await supabase.from("briefs").update({ status: "generating" }).eq("id", briefId);
-
     const basePrompt = await buildPrompt(brief);
     const variants = [
       `${basePrompt}, clean minimal layout, bold headline typography`,
@@ -144,41 +101,29 @@ export async function POST(req: NextRequest) {
       `${basePrompt}, geometric modern grid layout, strong visual hierarchy`,
     ];
 
-    // Try Nano Banana for all 3; fall back per-image to Pollinations
-    const imageUrls = await Promise.all(
-      variants.map(async (prompt, i) => {
-        const nano = await generateWithNanoBanana(prompt);
-        if (nano) {
-          const stored = await uploadToStorage(supabase, nano, briefId, i + 1);
-          if (stored) return { url: stored, engine: "nano-banana-2" };
-        }
-        return { url: pollinationsUrl(prompt, i * 77 + 200), engine: "pollinations" };
-      })
-    );
-
-    const inserts = imageUrls.map((img, i) => ({
-      brief_id: briefId,
-      image_url: img.url,
-      ai_prompt: `[${img.engine}] ${variants[i]}`,
-      version_number: i + 1,
-      status: "pending",
+    const imageUrls = await Promise.all(variants.map(async (prompt, i) => {
+      const nano = await generateWithNanoBanana(prompt);
+      if (nano.img) {
+        const up = await uploadToStorage(supabase, nano.img, briefId, i + 1);
+        if (up.url) { debug.push(`v${i + 1}: nano OK`); return { url: up.url, engine: "nano-banana-2" }; }
+        debug.push(`v${i + 1}: nano img OK but upload failed → ${up.err}`);
+      } else {
+        debug.push(`v${i + 1}: nano failed → ${nano.err}`);
+      }
+      return { url: pollinationsUrl(prompt, i * 77 + 200), engine: "pollinations" };
     }));
 
-    const { data: designs, error: designError } = await supabase
-      .from("designs").insert(inserts).select();
+    const inserts = imageUrls.map((img, i) => ({
+      brief_id: briefId, image_url: img.url, ai_prompt: `[${img.engine}] ${variants[i]}`,
+      version_number: i + 1, status: "pending",
+    }));
+    const { data: designs, error: designError } = await supabase.from("designs").insert(inserts).select();
     if (designError) throw new Error(designError.message);
 
     await supabase.from("briefs").update({ status: "designs_ready" }).eq("id", briefId);
-
-    return NextResponse.json({
-      success: true,
-      designs,
-      briefId,
-      engine: imageUrls[0].engine,
-    });
+    return NextResponse.json({ success: true, designs, briefId, engine: imageUrls[0].engine, debug });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";
-    console.error("Generation error:", message);
-    return NextResponse.json({ error: "Failed to generate designs", detail: message }, { status: 500 });
+    return NextResponse.json({ error: "Failed to generate designs", detail: message, debug }, { status: 500 });
   }
 }
