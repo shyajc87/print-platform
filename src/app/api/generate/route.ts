@@ -47,14 +47,14 @@ async function buildPrompt(brief: Brief): Promise<string> {
       { method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{ parts: [{ text: `You are an expert print designer. Convert this brief into an image generation prompt using only the details given below — do not invent a style, region, colour, or theme that isn't in the brief. Output ONLY the prompt, 60-80 words, no quotes.\n${briefText}` }] }],
-          generationConfig: { maxOutputTokens: 200 },
+          generationConfig: { maxOutputTokens: 500, thinkingConfig: { thinkingBudget: 0 } },
         }),
       }
     );
     const data = await res.json();
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (text) return text.trim();
-    throw new Error("empty text response");
+    if (text && text.trim().split(/\s+/).length >= 15) return text.trim();
+    throw new Error("text response missing or too short");
   } catch {
     // Fallback: use the brief's own fields directly, nothing invented.
     return briefText.replace(/\n/g, ", ");
