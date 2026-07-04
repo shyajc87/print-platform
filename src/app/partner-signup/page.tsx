@@ -60,22 +60,22 @@ export default function PartnerSignupPage() {
   ) {
     let entityId: string;
     if (role === "agency") {
-      const { data, error } = await supabase.from("design_agencies").insert([{
-        name: formArg.businessName, city: formArg.city, specialty: formArg.specialty || "General design",
+      entityId = crypto.randomUUID();
+      const { error } = await supabase.from("design_agencies").insert([{
+        id: entityId, name: formArg.businessName, city: formArg.city, specialty: formArg.specialty || "General design",
         contact_phone: formArg.contactPhone, contact_email: formArg.contactEmail || formArg.email,
         rating: 0, review_count: 0, approved: false,
-      }]).select().single();
+      }]);
       if (error) throw error;
-      entityId = data.id;
     } else {
-      const { data, error } = await supabase.from("printers").insert([{
-        name: formArg.businessName, city: formArg.city, pricing: pricing || {},
+      entityId = crypto.randomUUID();
+      const { error } = await supabase.from("printers").insert([{
+        id: entityId, name: formArg.businessName, city: formArg.city, pricing: pricing || {},
         turnaround_days: parseInt(formArg.turnaroundDays, 10) || 3,
         contact_phone: formArg.contactPhone, contact_email: formArg.contactEmail || formArg.email,
         rating: 0, review_count: 0, approved: false,
-      }]).select().single();
+      }]);
       if (error) throw error;
-      entityId = data.id;
     }
     const { error: profileErr } = await supabase.from("profiles").insert([{ id: userId, role, entity_id: entityId }]);
     if (profileErr) throw profileErr;

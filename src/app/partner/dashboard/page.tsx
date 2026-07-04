@@ -45,20 +45,20 @@ export default function PartnerDashboard() {
             if (role === "printer") { try { pricing = JSON.parse(form.pricing); } catch { pricing = {}; } }
             let entityId: string;
             if (role === "agency") {
-              const { data } = await supabase.from("design_agencies").insert([{
-                name: form.businessName, city: form.city, specialty: form.specialty || "General design",
+              entityId = crypto.randomUUID();
+              await supabase.from("design_agencies").insert([{
+                id: entityId, name: form.businessName, city: form.city, specialty: form.specialty || "General design",
                 contact_phone: form.contactPhone, contact_email: form.contactEmail || form.email,
                 rating: 0, review_count: 0, approved: false,
-              }]).select().single();
-              entityId = data.id;
+              }]);
             } else {
-              const { data } = await supabase.from("printers").insert([{
-                name: form.businessName, city: form.city, pricing: pricing || {},
+              entityId = crypto.randomUUID();
+              await supabase.from("printers").insert([{
+                id: entityId, name: form.businessName, city: form.city, pricing: pricing || {},
                 turnaround_days: parseInt(form.turnaroundDays, 10) || 3,
                 contact_phone: form.contactPhone, contact_email: form.contactEmail || form.email,
                 rating: 0, review_count: 0, approved: false,
-              }]).select().single();
-              entityId = data.id;
+              }]);
             }
             await supabase.from("profiles").insert([{ id: user.id, role, entity_id: entityId }]);
             localStorage.removeItem("pendingPartnerSignup");
