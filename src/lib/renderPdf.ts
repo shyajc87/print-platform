@@ -27,7 +27,7 @@ export async function renderManyToPdfAndPng(
     for (const html of htmls) {
       try {
         const page = await browser.newPage();
-        await page.setContent(html, { waitUntil: "networkidle0", timeout: 20000 });
+        await page.setContent(html, { waitUntil: "load", timeout: 20000 });
 
         const pdf = await page.pdf({
           width: `${pageSizeMm.w}mm`,
