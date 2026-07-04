@@ -21,6 +21,7 @@ interface MyRequest {
   status: string;
   created_at: string;
   agency_id: string;
+  brief_id: string | null;
 }
 
 function Stars({ rating }: { rating: number }) {
