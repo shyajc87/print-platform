@@ -90,11 +90,8 @@ export default function AgenciesContent() {
       }]);
       if (insertErr) throw insertErr;
       setSentTo(prev => ({ ...prev, [agency.id]: true }));
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: mine } = await supabase.from("agency_requests").select("*").eq("user_id", user.id).order("created_at", { ascending: false });
-        setMyRequests(mine || []);
-      }
+      const { data: mine } = await supabase.from("agency_requests").select("*").eq("user_id", user.id).order("created_at", { ascending: false });
+      setMyRequests(mine || []);
     } catch (err) {
       console.error(err);
       setError("Failed to send request. Please try again.");
