@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { CheckCircle, ArrowLeft, Loader2, Sparkles, Download } from "lucide-react";
+import { CheckCircle, ArrowLeft, Loader2, Sparkles, Download, X, ZoomIn, Maximize2 } from "lucide-react";
 
 interface Design {
   id: string;
@@ -18,23 +18,25 @@ export default function DesignsContent() {
 
   const [designs, setDesigns] = useState<Design[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
   const [approved, setApproved] = useState(false);
+  const [lightbox, setLightbox] = useState<Design | null>(null);
 
   useEffect(() => {
-    if (!briefId) {
-      router.push("/brief");
-      return;
-    }
+    if (!briefId) { router.push("/brief"); return; }
     generateDesigns();
   }, [briefId]);
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setLightbox(null);
+    window.addEventListener("keydown", onKey);
+    document.body.style.overflow = lightbox ? "hidden" : "";
+    return () => { window.removeEventListener("keydown", onKey); document.body.style.overflow = ""; };
+  }, [lightbox]);
+
   const generateDesigns = async () => {
-    setGenerating(true);
-    setLoading(true);
-    setError("");
+    setGenerating(true); setError("");
     try {
       const res = await fetch("/api/generate", {
         method: "POST",
@@ -49,47 +51,52 @@ export default function DesignsContent() {
       setError("Failed to generate designs. Please try again.");
     } finally {
       setGenerating(false);
-      setLoading(false);
     }
   };
 
-  const handleApprove = async () => {
-    if (!selected) return;
-    setApproved(true);
-  };
+  const cleanPrompt = (p: string) => p.replace(/^\[[^\]]+\]\s*/, "");
 
-  const navy = "#1e293b";
-  const skyBlue = "#0ea5e9";
+  const navy = "#111827";
+  const indigo = "#4f46e5";
   const green = "#10b981";
 
   return (
-    <div style={{ background: "#f0f4f8", minHeight: "100vh", fontFamily: "Inter, system-ui, sans-serif" }}>
+    <div style={{ background: "#faf9f7", minHeight: "100vh", fontFamily: "Inter, system-ui, sans-serif" }}>
+      <style>{`
+        .designs-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+        @media (max-width: 900px) { .designs-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 600px) { .designs-grid { grid-template-columns: 1fr; } }
+        .design-card { transition: transform .15s, box-shadow .15s, border-color .15s; }
+        .design-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(17,24,39,.12); }
+        .design-card:hover .zoom-hint { opacity: 1; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes lbIn { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: scale(1); } }
+      `}</style>
 
-      <div style={{ background: navy, padding: "16px 36px", display: "flex", alignItems: "center", gap: 16, borderBottom: "1px solid #0f172a" }}>
-        <button onClick={() => router.push("/brief")} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, color: "#94a3b8", fontSize: 13, fontFamily: "inherit" }}>
-          <ArrowLeft size={15} /> Back to brief
+      {/* Header */}
+      <div style={{ background: navy, padding: "14px 24px", display: "flex", alignItems: "center", gap: 16, borderBottom: "1px solid #000" }}>
+        <button onClick={() => router.push("/dashboard")} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, color: "#9ca3af", fontSize: 13, fontFamily: "inherit" }}>
+          <ArrowLeft size={15} /> Dashboard
         </button>
-        <div style={{ width: 1, height: 16, background: "#334155" }} />
-        <span style={{ fontSize: 14, fontWeight: 600, color: "#f1f5f9" }}>AI Design Concepts</span>
-        <span style={{ marginLeft: "auto", background: skyBlue, color: "#fff", fontSize: 11, fontWeight: 600, padding: "4px 10px", borderRadius: 20 }}>
-          Step 2 of 3
-        </span>
+        <div style={{ width: 1, height: 16, background: "#374151" }} />
+        <span style={{ fontSize: 14, fontWeight: 600, color: "#f9fafb" }}>AI Design Concepts</span>
+        <span style={{ marginLeft: "auto", background: indigo, color: "#fff", fontSize: 11, fontWeight: 600, padding: "4px 10px", borderRadius: 20 }}>Step 2 of 3</span>
       </div>
 
-      <div style={{ maxWidth: 900, margin: "0 auto", padding: "40px 24px" }}>
+      <div style={{ maxWidth: 1000, margin: "0 auto", padding: "36px 24px" }}>
 
         {generating && (
           <div style={{ textAlign: "center", padding: "80px 0" }}>
-            <div style={{ width: 56, height: 56, borderRadius: 16, background: skyBlue, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px", boxShadow: "0 4px 16px rgba(14,165,233,0.4)" }}>
+            <div style={{ width: 56, height: 56, borderRadius: 16, background: indigo, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px", boxShadow: "0 4px 16px rgba(79,70,229,.4)" }}>
               <Sparkles size={24} color="#fff" />
             </div>
-            <h2 style={{ fontSize: 22, fontWeight: 700, color: "#0f172a", marginBottom: 8 }}>Generating your designs</h2>
-            <p style={{ fontSize: 14, color: "#64748b", marginBottom: 32 }}>AI is creating 3 unique brochure concepts based on your brief</p>
+            <h2 style={{ fontSize: 22, fontWeight: 700, color: navy, marginBottom: 8 }}>Generating your designs</h2>
+            <p style={{ fontSize: 14, color: "#6b7280", marginBottom: 32 }}>AI is creating 3 unique concepts tailored to the Indian market</p>
             <div style={{ display: "flex", flexDirection: "column", gap: 12, maxWidth: 320, margin: "0 auto" }}>
-              {["Reading your brief...", "Writing design prompt...", "Generating 3 concepts..."].map((step, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, background: "#fff", padding: "12px 16px", borderRadius: 10, border: "1px solid #e2e8f0" }}>
-                  <Loader2 size={16} color={skyBlue} style={{ animation: "spin 1s linear infinite" }} />
-                  <span style={{ fontSize: 13, color: "#475569" }}>{step}</span>
+              {["Reading your brief...", "Writing design prompt...", "Generating concepts..."].map((step, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, background: "#fff", padding: "12px 16px", borderRadius: 10, border: "1px solid #e7e5e0" }}>
+                  <Loader2 size={16} color={indigo} style={{ animation: "spin 1s linear infinite" }} />
+                  <span style={{ fontSize: 13, color: "#374151" }}>{step}</span>
                 </div>
               ))}
             </div>
@@ -99,62 +106,54 @@ export default function DesignsContent() {
         {error && (
           <div style={{ textAlign: "center", padding: "60px 0" }}>
             <div style={{ fontSize: 16, color: "#dc2626", marginBottom: 16 }}>{error}</div>
-            <button onClick={generateDesigns} style={{ background: skyBlue, border: "none", borderRadius: 8, color: "#fff", fontSize: 14, fontWeight: 600, padding: "12px 24px", cursor: "pointer", fontFamily: "inherit" }}>
-              Try again
-            </button>
+            <button onClick={generateDesigns} style={{ background: indigo, border: "none", borderRadius: 8, color: "#fff", fontSize: 14, fontWeight: 600, padding: "12px 24px", cursor: "pointer", fontFamily: "inherit" }}>Try again</button>
           </div>
         )}
 
         {!generating && !error && designs.length > 0 && !approved && (
           <>
-            <div style={{ marginBottom: 32 }}>
-              <h2 style={{ fontSize: 24, fontWeight: 700, color: "#0f172a", marginBottom: 6 }}>Choose your direction</h2>
-              <p style={{ fontSize: 14, color: "#64748b" }}>3 unique AI-generated concepts based on your brief. Click one to select it.</p>
+            <div style={{ marginBottom: 28 }}>
+              <h2 style={{ fontSize: 24, fontWeight: 700, color: navy, marginBottom: 6 }}>Choose your direction</h2>
+              <p style={{ fontSize: 14, color: "#6b7280" }}>Tap any design to view it full-size. Click to select your favourite.</p>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20, marginBottom: 32 }}>
+            <div className="designs-grid" style={{ marginBottom: 32 }}>
               {designs.map((design) => (
-                <div
-                  key={design.id}
-                  onClick={() => setSelected(design.id)}
-                  style={{ borderRadius: 16, border: `2px solid ${selected === design.id ? skyBlue : "#e2e8f0"}`, overflow: "hidden", cursor: "pointer", background: "#fff", boxShadow: selected === design.id ? "0 4px 20px rgba(14,165,233,0.25)" : "0 1px 3px rgba(0,0,0,0.06)", transition: "all 0.2s" }}
-                >
+                <div key={design.id} className="design-card" style={{ borderRadius: 16, border: `2px solid ${selected === design.id ? indigo : "#e7e5e0"}`, overflow: "hidden", background: "#fff", boxShadow: selected === design.id ? "0 4px 20px rgba(79,70,229,.25)" : "0 1px 3px rgba(0,0,0,.06)" }}>
                   <div style={{ background: navy, padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: "#94a3b8" }}>Concept {design.version_number}</span>
-                    {selected === design.id && (
-                      <span style={{ background: skyBlue, color: "#fff", fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 20 }}>Selected</span>
-                    )}
+                    <span style={{ fontSize: 12, fontWeight: 600, color: "#9ca3af" }}>Concept {design.version_number}</span>
+                    {selected === design.id && <span style={{ background: indigo, color: "#fff", fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 20 }}>Selected</span>}
                   </div>
-                  <div style={{ aspectRatio: "10/16", background: "#f1f5f9", overflow: "hidden" }}>
-                    <img
-                      src={design.image_url}
-                      alt={`Design concept ${design.version_number}`}
-                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                    />
-                  </div>
-                  <div style={{ padding: "12px 14px" }}>
-                    <div style={{ fontSize: 11, color: "#94a3b8", lineHeight: 1.5, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const }}>
-                      {design.ai_prompt}
+
+                  {/* Image — click to zoom */}
+                  <div onClick={() => setLightbox(design)} style={{ position: "relative", aspectRatio: "10/16", background: "#f1f5f9", overflow: "hidden", cursor: "zoom-in" }}>
+                    <img src={design.image_url} alt={`Design concept ${design.version_number}`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    <div className="zoom-hint" style={{ position: "absolute", inset: 0, background: "rgba(17,24,39,.35)", display: "flex", alignItems: "center", justifyContent: "center", opacity: 0, transition: "opacity .15s" }}>
+                      <div style={{ background: "rgba(255,255,255,.95)", borderRadius: 20, padding: "8px 14px", display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: navy }}>
+                        <ZoomIn size={14} /> View full size
+                      </div>
                     </div>
+                  </div>
+
+                  <div style={{ padding: "12px 14px", display: "flex", gap: 8 }}>
+                    <button onClick={() => setSelected(design.id)} style={{ flex: 1, background: selected === design.id ? indigo : "#f3f4f6", color: selected === design.id ? "#fff" : "#374151", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, padding: "9px", cursor: "pointer", fontFamily: "inherit" }}>
+                      {selected === design.id ? "✓ Selected" : "Select this"}
+                    </button>
+                    <button onClick={() => setLightbox(design)} aria-label="Expand" style={{ background: "#f3f4f6", border: "none", borderRadius: 8, padding: "9px 11px", cursor: "pointer", color: "#374151" }}>
+                      <Maximize2 size={15} />
+                    </button>
                   </div>
                 </div>
               ))}
             </div>
 
-            <div style={{ background: navy, borderRadius: 16, padding: "20px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 4px 24px rgba(0,0,0,0.12)" }}>
+            <div style={{ background: navy, borderRadius: 16, padding: "20px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 4px 24px rgba(0,0,0,.12)", flexWrap: "wrap", gap: 12 }}>
               <div>
-                <div style={{ fontSize: 12, color: "#64748b" }}>{selected ? "Concept selected" : "Select a concept to continue"}</div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: selected ? green : "#475569", marginTop: 2 }}>
-                  {selected ? "✦ Ready to approve and send to print" : "Click a design above to select it"}
-                </div>
+                <div style={{ fontSize: 12, color: "#9ca3af" }}>{selected ? "Concept selected" : "Select a concept to continue"}</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: selected ? green : "#9ca3af", marginTop: 2 }}>{selected ? "✦ Ready to approve" : "Tap 'Select this' on any design"}</div>
               </div>
-              <button
-                onClick={handleApprove}
-                disabled={!selected}
-                style={{ background: selected ? green : "#334155", border: "none", borderRadius: 10, color: selected ? "#fff" : "#64748b", fontSize: 14, fontWeight: 600, padding: "13px 24px", cursor: selected ? "pointer" : "not-allowed", display: "flex", alignItems: "center", gap: 8, fontFamily: "inherit", boxShadow: selected ? "0 2px 8px rgba(16,185,129,0.4)" : "none" }}
-              >
-                <CheckCircle size={16} />
-                Approve this design
+              <button onClick={() => selected && setApproved(true)} disabled={!selected} style={{ background: selected ? green : "#374151", border: "none", borderRadius: 10, color: selected ? "#fff" : "#6b7280", fontSize: 14, fontWeight: 600, padding: "13px 24px", cursor: selected ? "pointer" : "not-allowed", display: "flex", alignItems: "center", gap: 8, fontFamily: "inherit" }}>
+                <CheckCircle size={16} /> Approve this design
               </button>
             </div>
           </>
@@ -162,24 +161,43 @@ export default function DesignsContent() {
 
         {approved && (
           <div style={{ textAlign: "center", padding: "80px 0" }}>
-            <div style={{ width: 64, height: 64, borderRadius: "50%", background: green, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px", boxShadow: "0 4px 20px rgba(16,185,129,0.4)" }}>
+            <div style={{ width: 64, height: 64, borderRadius: "50%", background: green, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px", boxShadow: "0 4px 20px rgba(16,185,129,.4)" }}>
               <CheckCircle size={28} color="#fff" />
             </div>
-            <h2 style={{ fontSize: 24, fontWeight: 700, color: "#0f172a", marginBottom: 8 }}>Design approved!</h2>
-            <p style={{ fontSize: 15, color: "#64748b", marginBottom: 40 }}>Your selected concept has been approved and sent to the print queue.</p>
-            <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
-              <button style={{ background: skyBlue, border: "none", borderRadius: 10, color: "#fff", fontSize: 14, fontWeight: 600, padding: "13px 24px", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, fontFamily: "inherit", boxShadow: "0 2px 8px rgba(14,165,233,0.4)" }}>
+            <h2 style={{ fontSize: 24, fontWeight: 700, color: navy, marginBottom: 8 }}>Design approved!</h2>
+            <p style={{ fontSize: 15, color: "#6b7280", marginBottom: 40 }}>Your selected concept has been approved and sent to the print queue.</p>
+            <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+              <button style={{ background: indigo, border: "none", borderRadius: 10, color: "#fff", fontSize: 14, fontWeight: 600, padding: "13px 24px", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, fontFamily: "inherit" }}>
                 <Download size={16} /> Download PDF
               </button>
-              <button onClick={() => router.push("/brief")} style={{ background: "#fff", border: "1.5px solid #e2e8f0", borderRadius: 10, color: "#475569", fontSize: 14, fontWeight: 500, padding: "13px 24px", cursor: "pointer", fontFamily: "inherit" }}>
-                Start new project
+              <button onClick={() => router.push("/dashboard")} style={{ background: "#fff", border: "1.5px solid #e7e5e0", borderRadius: 10, color: "#374151", fontSize: 14, fontWeight: 500, padding: "13px 24px", cursor: "pointer", fontFamily: "inherit" }}>
+                Back to dashboard
               </button>
             </div>
           </div>
         )}
-
       </div>
-      <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
+
+      {/* Lightbox */}
+      {lightbox && (
+        <div onClick={() => setLightbox(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.9)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, animation: "lbIn .2s ease" }}>
+          <button onClick={() => setLightbox(null)} aria-label="Close" style={{ position: "absolute", top: 20, right: 20, background: "rgba(255,255,255,.1)", border: "none", borderRadius: "50%", width: 40, height: 40, cursor: "pointer", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <X size={20} />
+          </button>
+          <div onClick={e => e.stopPropagation()} style={{ maxWidth: "90vw", maxHeight: "90vh", display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+            <img src={lightbox.image_url} alt={`Concept ${lightbox.version_number} full size`} style={{ maxWidth: "100%", maxHeight: "78vh", objectFit: "contain", borderRadius: 8, boxShadow: "0 20px 60px rgba(0,0,0,.5)" }} />
+            <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
+              <span style={{ color: "#9ca3af", fontSize: 13 }}>Concept {lightbox.version_number}</span>
+              <button onClick={() => { setSelected(lightbox.id); setLightbox(null); }} style={{ background: selected === lightbox.id ? green : indigo, border: "none", borderRadius: 8, color: "#fff", fontSize: 13, fontWeight: 600, padding: "9px 18px", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 6 }}>
+                <CheckCircle size={14} /> {selected === lightbox.id ? "Selected" : "Select this design"}
+              </button>
+              <a href={lightbox.image_url} download target="_blank" rel="noopener noreferrer" style={{ background: "rgba(255,255,255,.1)", borderRadius: 8, color: "#fff", fontSize: 13, fontWeight: 600, padding: "9px 18px", textDecoration: "none", display: "flex", alignItems: "center", gap: 6 }}>
+                <Download size={14} /> Download
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
