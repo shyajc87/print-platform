@@ -9,15 +9,44 @@ interface Brief {
   brand_name: string; industry: string; product_description: string;
   target_audience: string; key_message: string; mood: string;
   primary_colour: string; secondary_colour: string; size: string;
+  quantity?: string; additional_notes?: string;
+}
+
+const SIZE_LABELS: Record<string, string> = {
+  "a4-bifold": "A4 Bifold (210 x 297 mm)",
+  "a4-trifold": "A4 Trifold (210 x 297 mm)",
+  "a5-single": "A5 Single (148 x 210 mm)",
+  "dl-bifold": "DL Bifold (99 x 210 mm)",
+  "square-210": "Square (210 x 210 mm)",
+  "custom": "custom size",
+};
+
+// Builds the image-generation prompt entirely from what the user entered in the brief.
+// No invented style language, region, or aesthetic is added — only the user's own words and choices.
+function briefToPromptLines(brief: Brief): string {
+  const lines = [
+    `Brand: ${brief.brand_name}`,
+    `Industry: ${brief.industry}`,
+    `Promoting: ${brief.product_description}`,
+  ];
+  if (brief.target_audience) lines.push(`Target audience: ${brief.target_audience}`);
+  if (brief.key_message) lines.push(`Key message: ${brief.key_message}`);
+  if (brief.mood) lines.push(`Mood/style: ${brief.mood}`);
+  const colours = [brief.primary_colour, brief.secondary_colour].filter(Boolean).join(", ");
+  if (colours) lines.push(`Colours: ${colours}`);
+  if (brief.size) lines.push(`Format: ${SIZE_LABELS[brief.size] || brief.size}`);
+  if (brief.additional_notes) lines.push(`Additional content to include: ${brief.additional_notes}`);
+  return lines.join("\n");
 }
 
 async function buildPrompt(brief: Brief): Promise<string> {
+  const briefText = briefToPromptLines(brief);
   try {
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${TEXT_MODEL}:generateContent?key=${GEMINI_KEY}`,
       { method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: `You are an expert print designer. Convert this brief into an image generation prompt. Output ONLY the prompt, 60-80 words, no quotes.\nBrand: ${brief.brand_name}\nIndustry: ${brief.industry}\nPromoting: ${brief.product_description}\nKey message: ${brief.key_message || "n/a"}\nMood: ${brief.mood}\nColours: ${[brief.primary_colour, brief.secondary_colour].filter(Boolean).join(", ") || "designer's choice"}` }] }],
+          contents: [{ parts: [{ text: `You are an expert print designer. Convert this brief into an image generation prompt using only the details given below — do not invent a style, region, colour, or theme that isn't in the brief. Output ONLY the prompt, 60-80 words, no quotes.\n${briefText}` }] }],
           generationConfig: { maxOutputTokens: 200 },
         }),
       }
@@ -27,8 +56,8 @@ async function buildPrompt(brief: Brief): Promise<string> {
     if (text) return text.trim();
     throw new Error("empty text response");
   } catch {
-    const moodMap: Record<string, string> = { premium: "luxury elegant", modern: "clean minimal", bold: "vibrant striking", warm: "friendly warm", corporate: "professional formal", natural: "earthy organic" };
-    return `${moodMap[brief.mood] || "professional"} brochure for ${brief.brand_name}, ${brief.industry}, ${brief.key_message || brief.product_description}`;
+    // Fallback: use the brief's own fields directly, nothing invented.
+    return briefText.replace(/\n/g, ", ");
   }
 }
 
@@ -38,7 +67,7 @@ async function generateWithNanoBanana(prompt: string): Promise<{ img: string | n
       `https://generativelanguage.googleapis.com/v1beta/models/${IMAGE_MODEL}:generateContent?key=${GEMINI_KEY}`,
       { method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: `Generate a professional print brochure cover design: ${prompt}. Portrait A4 format, print-ready, editorial layout, sharp typography.` }] }],
+          contents: [{ parts: [{ text: prompt }] }],
           generationConfig: { responseModalities: ["IMAGE"] },
         }),
       }
@@ -59,7 +88,7 @@ async function generateWithNanoBanana(prompt: string): Promise<{ img: string | n
 }
 
 function pollinationsUrl(prompt: string, seed: number): string {
-  const encoded = encodeURIComponent(`Professional print brochure design, ${prompt}, high quality, editorial layout`);
+  const encoded = encodeURIComponent(prompt);
   return `https://image.pollinations.ai/prompt/${encoded}?width=800&height=1131&seed=${seed}&nologo=true&enhance=true&model=flux`;
 }
 
@@ -95,11 +124,9 @@ export async function POST(req: NextRequest) {
 
     await supabase.from("briefs").update({ status: "generating" }).eq("id", briefId);
     const basePrompt = await buildPrompt(brief);
-    const variants = [
-      `${basePrompt}, clean minimal layout, bold headline typography`,
-      `${basePrompt}, rich full-bleed imagery, elegant overlay typography`,
-      `${basePrompt}, geometric modern grid layout, strong visual hierarchy`,
-    ];
+    // All 3 concepts use the same user-derived prompt; natural model variation
+    // produces different layouts without us dictating a style.
+    const variants = [basePrompt, basePrompt, basePrompt];
 
     const imageUrls = await Promise.all(variants.map(async (prompt, i) => {
       const nano = await generateWithNanoBanana(prompt);
