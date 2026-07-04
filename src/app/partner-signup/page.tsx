@@ -56,22 +56,22 @@ export default function PartnerSignupPage() {
 
   async function completePartnerSetup(
     userId: string, role: "agency" | "printer",
-    form: typeof formInit, pricing: Record<string, number> | null
+    formArg: typeof form, pricing: Record<string, number> | null
   ) {
     let entityId: string;
     if (role === "agency") {
       const { data, error } = await supabase.from("design_agencies").insert([{
-        name: form.businessName, city: form.city, specialty: form.specialty || "General design",
-        contact_phone: form.contactPhone, contact_email: form.contactEmail || form.email,
+        name: formArg.businessName, city: formArg.city, specialty: formArg.specialty || "General design",
+        contact_phone: formArg.contactPhone, contact_email: formArg.contactEmail || formArg.email,
         rating: 0, review_count: 0, approved: false,
       }]).select().single();
       if (error) throw error;
       entityId = data.id;
     } else {
       const { data, error } = await supabase.from("printers").insert([{
-        name: form.businessName, city: form.city, pricing: pricing || {},
-        turnaround_days: parseInt(form.turnaroundDays, 10) || 3,
-        contact_phone: form.contactPhone, contact_email: form.contactEmail || form.email,
+        name: formArg.businessName, city: formArg.city, pricing: pricing || {},
+        turnaround_days: parseInt(formArg.turnaroundDays, 10) || 3,
+        contact_phone: formArg.contactPhone, contact_email: formArg.contactEmail || formArg.email,
         rating: 0, review_count: 0, approved: false,
       }]).select().single();
       if (error) throw error;
@@ -80,8 +80,6 @@ export default function PartnerSignupPage() {
     const { error: profileErr } = await supabase.from("profiles").insert([{ id: userId, role, entity_id: entityId }]);
     if (profileErr) throw profileErr;
   }
-
-  type formInit = typeof form;
 
   const navy = "#1e293b";
   const sky = "#0ea5e9";
