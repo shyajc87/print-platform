@@ -26,6 +26,13 @@ export async function POST(req: NextRequest) {
         quantity: body.quantity,
         deadline: body.deadline,
         additional_notes: body.additionalNotes,
+        logo_url: body.logoUrl || null,
+        contact_phone: body.contactPhone || null,
+        badges: body.badges || null,
+        price1_amount: body.price1Amount || null,
+        price1_label: body.price1Label || null,
+        price2_amount: body.price2Amount || null,
+        price2_label: body.price2Label || null,
         status: "pending",
       }])
       .select()

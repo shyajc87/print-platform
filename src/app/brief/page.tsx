@@ -39,11 +39,15 @@ export default function BriefPage() {
   const [loading, setLoading] = useState(false);
   const [refImage, setRefImage] = useState<File | null>(null);
   const [refImagePreview, setRefImagePreview] = useState<string>("");
+  const [logoImage, setLogoImage] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string>("");
   const [form, setForm] = useState({
     brandName: "", industry: "real-estate", productDescription: "",
     targetAudience: "", location: "", keyMessage: "", mood: "premium",
     primaryColour: "", secondaryColour: "", size: "a4-bifold",
     quantity: "", deadline: "", additionalNotes: "",
+    contactPhone: "", badges: "", price1Amount: "", price1Label: "",
+    price2Amount: "", price2Label: "",
   });
 
   const set = (f: string, v: string) => setForm(p => ({ ...p, [f]: v }));
@@ -53,6 +57,12 @@ export default function BriefPage() {
     setRefImage(file);
     if (file) setRefImagePreview(URL.createObjectURL(file));
     else setRefImagePreview("");
+  };
+
+  const onPickLogo = (file: File | null) => {
+    setLogoImage(file);
+    if (file) setLogoPreview(URL.createObjectURL(file));
+    else setLogoPreview("");
   };
 
   const handleSubmit = async () => {
@@ -69,10 +79,21 @@ export default function BriefPage() {
         referenceImageUrl = pub.publicUrl;
       }
 
+      let logoUrl = "";
+      if (logoImage) {
+        const { data: { user } } = await supabase.auth.getUser();
+        const ext = logoImage.name.split(".").pop() || "png";
+        const path = `${user?.id}/${Date.now()}-logo.${ext}`;
+        const { error: upErr } = await supabase.storage.from("logos").upload(path, logoImage, { upsert: true });
+        if (upErr) throw new Error(`Logo upload failed: ${upErr.message}`);
+        const { data: pub } = supabase.storage.from("logos").getPublicUrl(path);
+        logoUrl = pub.publicUrl;
+      }
+
       const res = await fetch("/api/brief", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, referenceImageUrl }),
+        body: JSON.stringify({ ...form, referenceImageUrl, logoUrl }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -232,6 +253,58 @@ export default function BriefPage() {
                   <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => onPickImage(e.target.files?.[0] || null)} />
                 </label>
               )}
+            </div>
+          </div>
+        </div>
+
+        <div style={cardStyle}>
+          <div style={{ background: navy, padding: "16px 20px", display: "flex", alignItems: "center", gap: 12, borderBottom: "1px solid #0f172a" }}>
+            <div style={{ width: 34, height: 34, borderRadius: 9, background: "#8b5cf6", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 8px rgba(139,92,246,0.4)" }}>
+              <Upload size={17} color="#fff" />
+            </div>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "#f1f5f9" }}>Brand elements (optional)</div>
+              <div style={{ fontSize: 12, color: "#64748b", marginTop: 1 }}>Logo, contact number, trust badges, price call-outs</div>
+            </div>
+          </div>
+          <div className="brief-body" style={{ padding: "20px" }}>
+            <div style={{ marginBottom: 16 }}>
+              <label style={labelStyle}>Logo</label>
+              {logoPreview ? (
+                <div style={{ position: "relative", display: "inline-block" }}>
+                  <img src={logoPreview} alt="Logo preview" style={{ width: 100, height: 100, objectFit: "contain", borderRadius: 10, border: "1.5px solid #e2e8f0", background: "#fff" }} />
+                  <button onClick={() => onPickLogo(null)} style={{ position: "absolute", top: -8, right: -8, background: "#ef4444", border: "2px solid #fff", borderRadius: "50%", width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+                    <X size={12} color="#fff" />
+                  </button>
+                </div>
+              ) : (
+                <label style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, width: 100, height: 100, border: "1.5px dashed #cbd5e1", borderRadius: 10, cursor: "pointer", background: "#f8fafc" }}>
+                  <Upload size={18} color="#94a3b8" />
+                  <span style={{ fontSize: 10, color: "#94a3b8" }}>Upload logo</span>
+                  <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => onPickLogo(e.target.files?.[0] || null)} />
+                </label>
+              )}
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <label style={labelStyle}>Phone number</label>
+              <input style={inputStyle} type="text" placeholder="+91 98765 43210" value={form.contactPhone} onChange={e => set("contactPhone", e.target.value)} />
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <label style={labelStyle}>Trust badges</label>
+              <input style={inputStyle} type="text" placeholder="e.g. DTCP Approved, RERA Registered" value={form.badges} onChange={e => set("badges", e.target.value)} />
+              <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>Comma-separated. Shown as small badges on the design.</div>
+            </div>
+            <div className="brief-grid-2">
+              <div>
+                <label style={labelStyle}>Price call-out 1</label>
+                <input style={{ ...inputStyle, marginBottom: 8 }} type="text" placeholder="₹27L onwards" value={form.price1Amount} onChange={e => set("price1Amount", e.target.value)} />
+                <input style={inputStyle} type="text" placeholder="Plots start from" value={form.price1Label} onChange={e => set("price1Label", e.target.value)} />
+              </div>
+              <div>
+                <label style={labelStyle}>Price call-out 2</label>
+                <input style={{ ...inputStyle, marginBottom: 8 }} type="text" placeholder="₹51L onwards" value={form.price2Amount} onChange={e => set("price2Amount", e.target.value)} />
+                <input style={inputStyle} type="text" placeholder="Villas start from" value={form.price2Label} onChange={e => set("price2Label", e.target.value)} />
+              </div>
             </div>
           </div>
         </div>
