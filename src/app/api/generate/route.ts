@@ -2,7 +2,7 @@ import { createClient as createServerClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 import { renderBrochureHtml, getPageSizeMm } from "@/lib/templates";
 import { renderManyToPdfAndPng } from "@/lib/renderPdf";
-import { buildImagePrompt, fetchRefImageAsBase64, generateWithNanoBanana, pollinationsUrl } from "@/lib/aiImage";
+import { buildImagePrompt, fetchRefImageAsBase64, generateWithNanoBanana, pollinationsUrl, ANGLE_VARIANTS } from "@/lib/aiImage";
 
 export const maxDuration = 60;
 
@@ -63,15 +63,17 @@ export async function POST(req: NextRequest) {
 
     await supabase.from("briefs").update({ status: "generating" }).eq("id", briefId);
     const imagePrompt = await buildImagePrompt(brief as Brief);
-    const variants = [imagePrompt, imagePrompt, imagePrompt];
+    const variants = ANGLE_VARIANTS.map(angle => `${imagePrompt} ${angle}`);
 
-    const refImage = brief.reference_image_url
-      ? await fetchRefImageAsBase64(brief.reference_image_url)
-      : null;
-    if (brief.reference_image_url && !refImage) debug.push("reference image: failed to fetch, proceeding without it");
+    const refImages: { data: string; mimeType: string }[] = [];
+    if (brief.reference_image_url) {
+      const ref = await fetchRefImageAsBase64(brief.reference_image_url);
+      if (ref) refImages.push(ref);
+      else debug.push("reference image: failed to fetch, proceeding without it");
+    }
 
     const backgrounds = await Promise.all(variants.map(async (prompt, i) => {
-      const nano = await generateWithNanoBanana(prompt, refImage);
+      const nano = await generateWithNanoBanana(prompt, refImages);
       if (nano.img) { debug.push(`v${i + 1}: nano OK`); return { url: nano.img, engine: "nano-banana-2" }; }
       debug.push(`v${i + 1}: nano failed → ${nano.err}, using pollinations`);
       return { url: pollinationsUrl(prompt, i * 77 + 200), engine: "pollinations" };

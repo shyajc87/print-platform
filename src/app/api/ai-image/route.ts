@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
       if (error || !data) return NextResponse.json({ error: "Brief not found" }, { status: 404 });
       brief = data;
     } else if (body.prompt) {
-      const nano = await generateWithNanoBanana(body.prompt, null);
+      const nano = await generateWithNanoBanana(body.prompt, []);
       if (nano.img) return NextResponse.json({ imageUrl: nano.img, engine: "nano-banana-2" });
       return NextResponse.json({ imageUrl: pollinationsUrl(body.prompt, Date.now() % 1000), engine: "pollinations" });
     } else {
@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
 
     const imagePrompt = await buildImagePrompt(brief);
     const refImage = body.referenceImageUrl ? await fetchRefImageAsBase64(body.referenceImageUrl) : null;
-    const nano = await generateWithNanoBanana(imagePrompt, refImage);
+    const nano = await generateWithNanoBanana(imagePrompt, refImage ? [refImage] : []);
     if (nano.img) return NextResponse.json({ imageUrl: nano.img, engine: "nano-banana-2", prompt: imagePrompt });
     return NextResponse.json({ imageUrl: pollinationsUrl(imagePrompt, Date.now() % 1000), engine: "pollinations", prompt: imagePrompt });
   } catch (err) {

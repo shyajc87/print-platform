@@ -22,6 +22,35 @@ const SIZE_LABELS: Record<string, string> = {
   "custom": "custom size",
 };
 
+// Genuinely different framing per concept, so the 3 generated images aren't
+// near-duplicates of the same shot.
+export const ANGLE_VARIANTS = [
+  "Wide aerial drone shot from directly overhead, midday natural light, expansive establishing view.",
+  "Eye-level ground view looking toward the main approach, warm golden-hour lighting.",
+  "Three-quarter elevated angle from slightly to one side, soft early-morning light with long shadows.",
+];
+
+// Detects whether the brief is about VACANT LAND (a plot for sale) vs a
+// FINISHED PROPERTY (villa/house/apartment for sale) — these need completely
+// different imagery, and getting this wrong (e.g. showing a landscaped villa
+// for a bare land listing) is a content error, not just a style issue.
+function detectRealEstateSubject(brief: BriefForImage): string | null {
+  if (brief.industry !== "real-estate") return null;
+  const text = `${brief.product_description} ${brief.key_message || ""}`.toLowerCase();
+  const plotWords = ["plot", "plots", "land", "site", "acre", "cent", "sqft plot", "vacant", "survey no", "dtcp", "layout"];
+  const builtWords = ["villa", "house", "apartment", "flat", "bungalow", "duplex", "cottage", "home for sale", "township"];
+  const hasPlot = plotWords.some(w => text.includes(w));
+  const hasBuilt = builtWords.some(w => text.includes(w));
+
+  if (hasPlot && !hasBuilt) {
+    return "This is VACANT, UNDEVELOPED LAND for sale — NOT a finished house or villa. Show an empty plot of land with visible boundary markers/stakes, freshly cleared or graveled access roads, surrounding greenery. Absolutely NO houses, villas, or completed buildings should appear in the image — the land is empty and ready for construction.";
+  }
+  if (hasBuilt) {
+    return "This is a FINISHED, move-in-ready property for sale. Show a completed, professionally landscaped house/villa exterior with visible architectural details.";
+  }
+  return null; // ambiguous — let the model use general judgement
+}
+
 function briefToPromptLines(brief: BriefForImage): string {
   const lines = [
     `Brand: ${brief.brand_name}`,
@@ -35,6 +64,8 @@ function briefToPromptLines(brief: BriefForImage): string {
   const colours = [brief.primary_colour, brief.secondary_colour].filter(Boolean).join(", ");
   if (colours) lines.push(`Colours: ${colours}`);
   if (brief.size) lines.push(`Format: ${SIZE_LABELS[brief.size] || brief.size}`);
+  const subjectHint = detectRealEstateSubject(brief);
+  if (subjectHint) lines.push(`IMPORTANT subject clarification: ${subjectHint}`);
   lines.push(
     `Market default: Indian market — visual style and imagery that feels locally relatable${brief.location ? ` for ${brief.location}` : ""}.`
   );
@@ -48,7 +79,7 @@ export async function buildImagePrompt(brief: BriefForImage): Promise<string> {
       `https://generativelanguage.googleapis.com/v1beta/models/${TEXT_MODEL}:generateContent?key=${GEMINI_KEY}`,
       { method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: `You are a photo art director. Convert this brief into a description of a BACKGROUND/HERO IMAGE ONLY — describe the visual scene, subject, lighting, and mood. Do NOT mention any text, words, numbers, prices, logos, or typography — those are added separately. Output ONLY the image description, 40-60 words, no quotes.\n${briefText}` }] }],
+          contents: [{ parts: [{ text: `You are a photo art director. Convert this brief into a description of a BACKGROUND/HERO IMAGE ONLY — describe the visual scene, subject, lighting, and mood. Follow any "IMPORTANT subject clarification" line exactly — it corrects a common mistake. Do NOT mention any text, words, numbers, prices, logos, or typography — those are added separately. Output ONLY the image description, 40-60 words, no quotes.\n${briefText}` }] }],
           generationConfig: { maxOutputTokens: 400, thinkingConfig: { thinkingBudget: 0 } },
         }),
       }
@@ -58,7 +89,8 @@ export async function buildImagePrompt(brief: BriefForImage): Promise<string> {
     if (text && text.trim().split(/\s+/).length >= 10) return text.trim();
     throw new Error("text response missing or too short");
   } catch {
-    return `A photographic scene representing ${brief.industry.replace("-", " ")}: ${brief.product_description}`;
+    const subjectHint = detectRealEstateSubject(brief);
+    return `A photographic scene representing ${brief.industry.replace("-", " ")}: ${brief.product_description}${subjectHint ? `. ${subjectHint}` : ""}`;
   }
 }
 
@@ -74,16 +106,19 @@ export async function fetchRefImageAsBase64(url: string): Promise<{ data: string
   }
 }
 
+// Accepts MULTIPLE reference images (e.g. several of the customer's own real
+// site photos) so the model can draw style/content cues from all of them,
+// not just one. Pass an empty array for a pure text-to-image generation.
 export async function generateWithNanoBanana(
   prompt: string,
-  refImage: { data: string; mimeType: string } | null
+  refImages: { data: string; mimeType: string }[]
 ): Promise<{ img: string | null; err: string | null }> {
   try {
     const noTextInstruction = "Photographic background image, no text, no words, no numbers, no logos, no typography anywhere in the image: ";
     const parts: Record<string, unknown>[] = [];
-    if (refImage) {
-      parts.push({ inlineData: { mimeType: refImage.mimeType, data: refImage.data } });
-      parts.push({ text: `Use the attached image as a base/reference (e.g. site photo, product, or logo). ${noTextInstruction}${prompt}` });
+    if (refImages.length > 0) {
+      for (const ref of refImages) parts.push({ inlineData: { mimeType: ref.mimeType, data: ref.data } });
+      parts.push({ text: `Use the attached image(s) as a base/reference (e.g. real site photos, product, or logo) — match their real content and style where relevant. ${noTextInstruction}${prompt}` });
     } else {
       parts.push({ text: `${noTextInstruction}${prompt}` });
     }
