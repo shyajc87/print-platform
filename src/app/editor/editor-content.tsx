@@ -78,8 +78,11 @@ export default function EditorContent() {
     })();
   }, [briefId]);
 
+  const [pendingFamily, setPendingFamily] = useState<Family | null>(null);
+  const canvasBuiltRef = useRef(false);
+
   useEffect(() => {
-    if (ready && bgParam && gallery) initCanvas("blank");
+    if (ready && bgParam && gallery) { setPendingFamily("blank"); setGallery(false); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, bgParam]);
 
@@ -105,7 +108,11 @@ export default function EditorContent() {
     refreshLayers();
   }, [refreshLayers]);
 
-  const initCanvas = useCallback(async (family: Family) => {
+  // The <canvas> element only exists in the DOM once `gallery` is false, so
+  // the actual fabric.Canvas construction has to happen AFTER that render —
+  // not inside the click handler itself, which fires while the gallery
+  // screen (with no <canvas> yet) is still showing.
+  const buildCanvas = useCallback(async (family: Family) => {
     const fabric = await import("fabric");
     fabricRef.current = fabric;
     if (!canvasElRef.current) return;
@@ -139,9 +146,21 @@ export default function EditorContent() {
 
     suppressHistoryRef.current = true;
     setTimeout(() => { suppressHistoryRef.current = false; pushHistory(); }, 50);
-
-    setGallery(false);
   }, [brief, canvasHeight, pushHistory, bgParam]);
+
+  // Runs once the editor screen (and its <canvas> element) has actually mounted.
+  useEffect(() => {
+    if (!gallery && pendingFamily && !canvasBuiltRef.current) {
+      canvasBuiltRef.current = true;
+      buildCanvas(pendingFamily);
+    }
+  }, [gallery, pendingFamily, buildCanvas]);
+
+  const initCanvas = (family: Family) => {
+    setPendingFamily(family);
+    setGallery(false);
+  };
+
 
   function onSelect(obj: any) {
     if (!obj) { setSelectedType(null); return; }
