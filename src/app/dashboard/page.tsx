@@ -79,8 +79,8 @@ export default function DashboardPage() {
     <div className="dash-shell" style={{ background: "#f0f4f8", minHeight: "100vh", fontFamily: "Inter, system-ui, sans-serif" }}>
       <style>{`
         .dash-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 20px; }
-        .dash-layout { max-width: 1100px; width: 100%; margin: 0 auto; padding: 28px 20px; display: flex; gap: 24px; align-items: flex-start; }
-        .dash-sidebar { width: 240px; flex-shrink: 0; display: flex; flex-direction: column; gap: 16px; order: 2; }
+        .dash-layout { width: 100%; margin: 0; padding: 28px 32px; display: flex; gap: 24px; align-items: stretch; box-sizing: border-box; }
+        .dash-sidebar { width: 260px; flex-shrink: 0; display: flex; flex-direction: column; gap: 16px; order: 2; }
         .dash-content { flex: 1; min-width: 0; padding: 0; order: 1; display: flex; flex-direction: column; min-height: 0; }
         .dash-content-scroll { overflow-y: auto; padding-right: 4px; }
         .sidebar-item:hover { background: #f0f9ff !important; }
