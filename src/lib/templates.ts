@@ -14,6 +14,13 @@ interface TemplateBrief {
   size?: string;
   additional_notes?: string;
   location?: string;
+  logo_url?: string | null;
+  contact_phone?: string | null;
+  badges?: string | null;
+  price1_amount?: string | null;
+  price1_label?: string | null;
+  price2_amount?: string | null;
+  price2_label?: string | null;
 }
 
 const SIZE_MM: Record<string, { w: number; h: number }> = {
@@ -71,6 +78,10 @@ function bulletsFromText(text: string): string[] {
     .slice(0, 6);
 }
 
+function badgesFromText(text?: string | null): string[] {
+  return (text || "").split(",").map(s => s.trim()).filter(Boolean).slice(0, 3);
+}
+
 function baseStyles(accent: string, accent2: string) {
   return `
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -84,29 +95,51 @@ function baseStyles(accent: string, accent2: string) {
 }
 
 function heroTemplate(b: TemplateBrief, imageDataUrl: string): string {
-  const bullets = bulletsFromText(b.product_description);
+  const badges = badgesFromText(b.badges);
+  const hasPrice1 = !!(b.price1_amount || b.price1_label);
+  const hasPrice2 = !!(b.price2_amount || b.price2_label);
+  const locationParts = (b.location || "").split(",").map(s => s.trim()).filter(Boolean);
+  const locationSmall = locationParts.length > 1 ? locationParts[0] : "";
+  const locationBig = locationParts.length > 1 ? locationParts.slice(1).join(", ") : locationParts[0] || "";
+
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
     ${baseStyles(colourVars("--accent", "#1e293b", b.primary_colour), colourVars("--accent2", "#0ea5e9", b.secondary_colour))}
     .hero { position: absolute; inset: 0; background-image: url('${imageDataUrl}'); background-size: cover; background-position: center; }
-    .scrim { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.55) 32%, rgba(0,0,0,0) 62%); }
-    .overlay { position: absolute; left: 0; right: 0; bottom: 0; padding: 6% 6% 3%; color: #fff; }
-    .overlay h1 { font-size: 4.4vh; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
-    .overlay .subtag { font-size: 2vh; opacity: 0.92; margin-top: 0.6vh; }
-    .overlay .meta { font-size: 1.6vh; opacity: 0.85; margin-top: 1.2vh; text-transform: uppercase; letter-spacing: 0.5px; }
-    ul { list-style: none; display: flex; flex-direction: column; gap: 0.8vh; margin-top: 1.8vh; }
-    li { font-size: 1.9vh; padding-left: 1.6em; position: relative; }
-    li::before { content: "—"; position: absolute; left: 0; color: var(--accent2); font-weight: 700; }
-    .accent-line { height: 0.8vh; background: var(--accent2); margin-top: 2.2vh; width: 22%; }
+    .top-scrim { position: absolute; top: 0; left: 0; right: 0; height: 22%; background: linear-gradient(to bottom, rgba(0,0,0,0.55), rgba(0,0,0,0)); }
+    .location { position: absolute; top: 4%; left: 6%; color: #fff; }
+    .location .small { font-size: 1.7vh; font-weight: 600; letter-spacing: 1px; opacity: 0.9; }
+    .location .big { font-size: 3.6vh; font-weight: 800; letter-spacing: 0.5px; margin-top: 0.3vh; }
+    .badges { position: absolute; left: 4%; top: 30%; display: flex; flex-direction: column; gap: 1vh; }
+    .badge { background: rgba(15,23,42,0.82); color: #fff; font-size: 1.3vh; font-weight: 700; padding: 0.9vh 1.2vh; border-radius: 0.6vh; text-align: center; letter-spacing: 0.3px; max-width: 9vh; }
+    .bottom-scrim { position: absolute; left: 0; right: 0; bottom: 9vh; height: 40%; background: linear-gradient(to top, rgba(0,0,0,0.85), rgba(0,0,0,0)); }
+    .prices { position: absolute; left: 6%; right: 6%; bottom: 11vh; display: flex; gap: 3%; }
+    .price-box { flex: 1; background: rgba(15,23,42,0.72); border: 1px solid rgba(255,255,255,0.25); border-radius: 0.8vh; padding: 1.4vh 1vh; text-align: center; }
+    .price-box .amount { font-size: 2.8vh; font-weight: 800; color: var(--accent2); }
+    .price-box .label { font-size: 1.3vh; color: #f1f5f9; margin-top: 0.4vh; text-transform: uppercase; letter-spacing: 0.4px; }
+    .tagline { position: absolute; left: 6%; right: 6%; bottom: ${hasPrice1 || hasPrice2 ? "20vh" : "11vh"}; color: #fff; font-size: 1.9vh; font-weight: 600; text-shadow: 0 2px 8px rgba(0,0,0,0.6); }
+    .brandbar { position: absolute; left: 0; right: 0; bottom: 0; height: 9vh; background: var(--accent); display: flex; align-items: center; padding: 0 4%; gap: 3%; }
+    .brandbar img { height: 6vh; width: 6vh; object-fit: contain; background: #fff; border-radius: 0.6vh; padding: 0.4vh; }
+    .brandbar .name { color: #fff; font-size: 2.2vh; font-weight: 800; flex: 1; }
+    .brandbar .phone { color: #fff; font-size: 2vh; font-weight: 700; white-space: nowrap; }
   </style></head><body>
     <div class="page">
       <div class="hero"></div>
-      <div class="scrim"></div>
-      <div class="overlay">
-        <h1>${escapeHtml(b.brand_name)}</h1>
-        ${b.key_message ? `<div class="subtag">${escapeHtml(b.key_message)}</div>` : ""}
-        <ul>${bullets.map(x => `<li>${escapeHtml(x)}</li>`).join("")}</ul>
-        <div class="accent-line"></div>
-        <div class="meta">${escapeHtml(b.industry.replace("-", " "))}${b.location ? ` · ${escapeHtml(b.location)}` : ""} · ${escapeHtml(b.additional_notes || b.target_audience || "")}</div>
+      <div class="top-scrim"></div>
+      ${locationBig ? `<div class="location">
+        ${locationSmall ? `<div class="small">${escapeHtml(locationSmall)}</div>` : ""}
+        <div class="big">${escapeHtml(locationBig)}</div>
+      </div>` : ""}
+      ${badges.length ? `<div class="badges">${badges.map(x => `<div class="badge">${escapeHtml(x)}</div>`).join("")}</div>` : ""}
+      <div class="bottom-scrim"></div>
+      ${b.key_message ? `<div class="tagline">${escapeHtml(b.key_message)}</div>` : ""}
+      ${(hasPrice1 || hasPrice2) ? `<div class="prices">
+        ${hasPrice1 ? `<div class="price-box"><div class="amount">${escapeHtml(b.price1_amount)}</div><div class="label">${escapeHtml(b.price1_label)}</div></div>` : ""}
+        ${hasPrice2 ? `<div class="price-box"><div class="amount">${escapeHtml(b.price2_amount)}</div><div class="label">${escapeHtml(b.price2_label)}</div></div>` : ""}
+      </div>` : ""}
+      <div class="brandbar">
+        ${b.logo_url ? `<img src="${b.logo_url}" alt="logo" />` : ""}
+        <div class="name">${escapeHtml(b.brand_name)}</div>
+        ${b.contact_phone ? `<div class="phone">${escapeHtml(b.contact_phone)}</div>` : ""}
       </div>
     </div>
   </body></html>`;
@@ -123,6 +156,7 @@ function gridTemplate(b: TemplateBrief, imageDataUrl: string): string {
     .photo { flex: 1; margin: 0 6%; border-radius: 1.2vh; background-image: url('${imageDataUrl}'); background-size: cover; background-position: center; }
     .chips { display: flex; flex-wrap: wrap; gap: 1vh; padding: 3% 6%; }
     .chip { background: #fef2f2; border: 1px solid var(--accent); color: var(--accent); font-size: 1.6vh; font-weight: 600; padding: 0.8vh 1.6vh; border-radius: 999px; }
+    .footer-strip img { height: 3vh; width: 3vh; object-fit: contain; background: #fff; border-radius: 0.4vh; margin-right: 1vh; }
   </style></head><body>
     <div class="page">
       <div class="top">
@@ -135,8 +169,8 @@ function gridTemplate(b: TemplateBrief, imageDataUrl: string): string {
       <div class="photo"></div>
       <div class="chips">${bullets.map(x => `<span class="chip">${escapeHtml(x)}</span>`).join("")}</div>
       <div class="footer-strip">
-        <span class="brand">${escapeHtml(b.brand_name)}</span>
-        <span class="tag">${escapeHtml(b.additional_notes || b.target_audience || "")}</span>
+        <span class="brand" style="display:flex;align-items:center;">${b.logo_url ? `<img src="${b.logo_url}" alt="logo" />` : ""}${escapeHtml(b.brand_name)}</span>
+        <span class="tag">${escapeHtml(b.contact_phone || b.additional_notes || b.target_audience || "")}</span>
       </div>
     </div>
   </body></html>`;
@@ -169,7 +203,7 @@ function corporateTemplate(b: TemplateBrief, imageDataUrl: string): string {
       </div>
       <div class="footer-strip">
         <span class="brand">${escapeHtml(b.industry.replace("-", " "))}</span>
-        <span class="tag">${escapeHtml(b.location || "")}</span>
+        <span class="tag">${escapeHtml(b.location || "")}${b.contact_phone ? ` · ${escapeHtml(b.contact_phone)}` : ""}</span>
       </div>
     </div>
   </body></html>`;
