@@ -76,13 +76,20 @@ export default function DashboardPage() {
   const sky = "#0ea5e9";
 
   return (
-    <div style={{ background: "#f0f4f8", minHeight: "100vh", fontFamily: "Inter, system-ui, sans-serif" }}>
+    <div className="dash-shell" style={{ background: "#f0f4f8", minHeight: "100vh", fontFamily: "Inter, system-ui, sans-serif" }}>
       <style>{`
         .dash-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 20px; }
-        .dash-layout { max-width: 960px; margin: 0 auto; padding: 28px 20px; display: flex; gap: 24px; align-items: flex-start; }
-        .dash-sidebar { width: 240px; flex-shrink: 0; display: flex; flex-direction: column; gap: 16px; }
-        .dash-content { flex: 1; min-width: 0; padding: 0; }
+        .dash-layout { max-width: 1100px; width: 100%; margin: 0 auto; padding: 28px 20px; display: flex; gap: 24px; align-items: flex-start; }
+        .dash-sidebar { width: 240px; flex-shrink: 0; display: flex; flex-direction: column; gap: 16px; order: 2; }
+        .dash-content { flex: 1; min-width: 0; padding: 0; order: 1; display: flex; flex-direction: column; min-height: 0; }
+        .dash-content-scroll { overflow-y: auto; padding-right: 4px; }
         .sidebar-item:hover { background: #f0f9ff !important; }
+        @media (min-width: 769px) {
+          .dash-shell { height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+          .dash-layout { flex: 1; min-height: 0; overflow: hidden; }
+          .dash-sidebar { max-height: 100%; overflow-y: auto; }
+          .dash-content-scroll { flex: 1; }
+        }
         @media (max-width: 768px) {
           .dash-layout { flex-direction: column; padding: 20px 16px; }
           .dash-sidebar { width: 100%; }
@@ -151,6 +158,7 @@ export default function DashboardPage() {
         </aside>
 
         <div className="dash-content">
+        <div style={{ flexShrink: 0 }}>
         <div style={{ marginBottom: 24 }}>
           <h1 style={{ fontSize: 22, fontWeight: 600, color: "#0f172a", letterSpacing: "-0.3px" }}>
             {greeting}, {name.split(" ")[0]}
@@ -185,18 +193,29 @@ export default function DashboardPage() {
           Design from scratch
         </button>
         <button
+          onClick={() => router.push("/my-designs")}
+          style={{ width: "100%", background: "#fff", color: "#374151", border: "1.5px solid #e2e8f0", borderRadius: 12, fontSize: 13, fontWeight: 600, padding: "12px", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 10 }}
+        >
+          My Designs
+        </button>
+        <button
           onClick={() => router.push("/agencies")}
           style={{ width: "100%", background: "#fff", color: "#374151", border: "1.5px solid #e2e8f0", borderRadius: 12, fontSize: 13, fontWeight: 600, padding: "12px", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 24 }}
         >
           Get a custom designer
         </button>
 
-        <div style={{ marginBottom: 12 }}>
+        <div style={{ marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <span style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px" }}>
             Recent projects
           </span>
+          {!loading && briefs.length > 0 && (
+            <span style={{ fontSize: 11, color: "#cbd5e1" }}>{briefs.length} total</span>
+          )}
+        </div>
         </div>
 
+        <div className="dash-content-scroll">
         {loading ? (
           <div style={{ textAlign: "center", padding: "40px 0", color: "#94a3b8", fontSize: 14 }}>
             Loading your projects...
@@ -255,6 +274,7 @@ export default function DashboardPage() {
             })}
           </div>
         )}
+        </div>
         </div>
       </div>
     </div>

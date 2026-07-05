@@ -14,6 +14,9 @@ interface Brief {
   primary_colour: string; secondary_colour: string; size: string;
   quantity?: string; additional_notes?: string; location?: string;
   reference_image_url?: string | null;
+  logo_url?: string | null; contact_phone?: string | null; badges?: string | null;
+  price1_amount?: string | null; price1_label?: string | null;
+  price2_amount?: string | null; price2_label?: string | null;
 }
 
 async function uploadBuffer(
@@ -104,7 +107,7 @@ export async function POST(req: NextRequest) {
     if (designs.length === 0) throw new Error("All concepts failed to render. See debug for details.");
 
     const inserts = designs.map((d, i) => ({
-      brief_id: briefId, image_url: d.image_url, pdf_url: d.pdf_url, raw_image_url: d.raw_image_url,
+      brief_id: briefId, user_id: brief.user_id, image_url: d.image_url, pdf_url: d.pdf_url, raw_image_url: d.raw_image_url,
       ai_prompt: `[${d.engine}] ${imagePrompt}`,
       version_number: i + 1, status: "pending",
     }));

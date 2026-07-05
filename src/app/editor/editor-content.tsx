@@ -393,6 +393,9 @@ export default function EditorContent() {
       const canvas = fabricCanvasRef.current;
       sideJsonRef.current[side] = canvas.toJSON();
 
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("You must be signed in to save.");
+
       const previewDataUrl = canvas.toDataURL({ format: "png", multiplier: 2 });
       const blob = await (await fetch(previewDataUrl)).blob();
       const path = `${briefId || "custom"}/editor-preview-${Date.now()}.png`;
@@ -401,12 +404,18 @@ export default function EditorContent() {
       const { data: pub } = supabase.storage.from("designs").getPublicUrl(path);
 
       await supabase.from("designs").insert([{
-        brief_id: briefId || null, image_url: pub.publicUrl,
+        brief_id: briefId || null, user_id: user.id, image_url: pub.publicUrl,
         canvas_json: { front: sideJsonRef.current.front, back: sideJsonRef.current.back },
         ai_prompt: "[editor] user-edited design", version_number: 0, status: "pending",
       }]);
-      if (briefId) await supabase.from("briefs").update({ status: "designs_ready" }).eq("id", briefId);
-      alert("Saved! Find it in your designs list.");
+      if (briefId) {
+        await supabase.from("briefs").update({ status: "designs_ready" }).eq("id", briefId);
+        alert("Saved! Find it under that project's designs.");
+        router.push(`/designs?id=${briefId}`);
+      } else {
+        alert("Saved! Find it in My Designs.");
+        router.push("/my-designs");
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Save failed");
     } finally {
