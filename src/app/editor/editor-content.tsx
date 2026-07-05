@@ -5,23 +5,41 @@ import { createClient } from "@/lib/supabase/client";
 import { getPageSizeMm } from "@/lib/templates";
 import {
   Type, Square, Circle as CircleIcon, Image as ImageIcon, Sparkles, Undo2, Redo2,
-  Trash2, BringToFront, SendToBack, Save, Download, ArrowLeft, Loader2,
+  Trash2, BringToFront, SendToBack, Save, Download, ArrowLeft, Loader2, ZoomIn, ZoomOut,
+  Maximize, QrCode, Star, Heart, CheckCircle2, MapPin, Phone, Home as HomeIcon, Award, ArrowRight as ArrowRightIcon,
+  Image as LogoIcon, Palette,
 } from "lucide-react";
 
 interface Brief {
   id: string; brand_name: string; industry: string; product_description: string;
   key_message?: string; target_audience?: string; primary_colour?: string;
   secondary_colour?: string; size?: string; additional_notes?: string; location?: string;
+  logo_url?: string | null;
 }
 
 type Family = "hero" | "grid" | "corporate" | "blank";
+type Side = "front" | "back";
 
 const CANVAS_BASE_WIDTH = 500;
+
+// A small self-contained clipart set — simple, recognizable shapes, no
+// external icon library dependency (kept as raw SVG strings for fabric to load).
+const CLIPART: { name: string; Icon: any; svg: string }[] = [
+  { name: "Star", Icon: Star, svg: `<svg viewBox="0 0 24 24"><path fill="#f59e0b" d="M12 2l2.9 6.9 7.1.6-5.4 4.7 1.7 7-6.3-3.9L5.7 21l1.7-7-5.4-4.7 7.1-.6z"/></svg>` },
+  { name: "Heart", Icon: Heart, svg: `<svg viewBox="0 0 24 24"><path fill="#e24b4a" d="M12 21s-7.5-4.6-10-9.3C.5 8.3 2.4 5 6 5c2 0 3.4 1 6 3.4C14.6 6 16 5 18 5c3.6 0 5.5 3.3 4 6.7C19.5 16.4 12 21 12 21z"/></svg>` },
+  { name: "Check", Icon: CheckCircle2, svg: `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#10b981"/><path fill="#fff" d="M9.5 16.2 5.8 12.5l1.4-1.4 2.3 2.3 6-6 1.4 1.4z"/></svg>` },
+  { name: "Location", Icon: MapPin, svg: `<svg viewBox="0 0 24 24"><path fill="#e24b4a" d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg>` },
+  { name: "Phone", Icon: Phone, svg: `<svg viewBox="0 0 24 24"><path fill="#0ea5e9" d="M6.6 10.8c1.4 2.7 3.7 5 6.5 6.5l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.5.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C10.6 21 3 13.4 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.2.2 2.4.6 3.5.1.3 0 .7-.2 1z"/></svg>` },
+  { name: "Home", Icon: HomeIcon, svg: `<svg viewBox="0 0 24 24"><path fill="#7c3aed" d="M12 3 2 12h3v8h6v-6h2v6h6v-8h3z"/></svg>` },
+  { name: "Badge", Icon: Award, svg: `<svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="6" fill="#f59e0b"/><path fill="#f59e0b" d="M8.5 14 6 21l6-3 6 3-2.5-7z"/></svg>` },
+  { name: "Arrow", Icon: ArrowRightIcon, svg: `<svg viewBox="0 0 24 24"><path fill="#111827" d="M4 11h13.2l-4.6-4.6L14 5l7 7-7 7-1.4-1.4 4.6-4.6H4z"/></svg>` },
+];
 
 export default function EditorContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const briefId = searchParams.get("id");
+  const bgParam = searchParams.get("bg");
   const supabase = createClient();
 
   const canvasElRef = useRef<HTMLCanvasElement>(null);
@@ -30,23 +48,27 @@ export default function EditorContent() {
   const historyRef = useRef<string[]>([]);
   const historyIndexRef = useRef(-1);
   const suppressHistoryRef = useRef(false);
+  const sideJsonRef = useRef<{ front: any; back: any }>({ front: null, back: null });
 
   const [brief, setBrief] = useState<Brief | null>(null);
   const [pageSize, setPageSize] = useState({ w: 210, h: 297 });
   const [gallery, setGallery] = useState(true);
   const [ready, setReady] = useState(false);
+  const [side, setSide] = useState<Side>("front");
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [selectedFill, setSelectedFill] = useState("#111827");
   const [selectedFontSize, setSelectedFontSize] = useState(28);
+  const [bgColor, setBgColor] = useState("#ffffff");
+  const [zoom, setZoom] = useState(1);
   const [layers, setLayers] = useState<{ id: number; label: string }[]>([]);
   const [aiLoading, setAiLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [showClipart, setShowClipart] = useState(false);
   const [error, setError] = useState("");
 
   const canvasHeight = Math.round(CANVAS_BASE_WIDTH * (pageSize.h / pageSize.w));
 
-  // Load brief (if any) so starter layouts and AI generation use real content.
   useEffect(() => {
     if (!briefId) { setReady(true); return; }
     (async () => {
@@ -56,13 +78,18 @@ export default function EditorContent() {
     })();
   }, [briefId]);
 
+  useEffect(() => {
+    if (ready && bgParam && gallery) initCanvas("blank");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, bgParam]);
+
   const refreshLayers = useCallback(() => {
     const canvas = fabricCanvasRef.current;
     if (!canvas) return;
     const objs = canvas.getObjects();
     setLayers(objs.map((o: any, i: number) => ({
       id: i,
-      label: o.type === "i-text" || o.type === "text" ? `Text: ${(o.text || "").slice(0, 18)}` : o.type === "image" ? "Image" : o.type === "rect" ? "Rectangle" : o.type === "circle" ? "Circle" : o.type,
+      label: o.type === "i-text" || o.type === "text" ? `Text: ${(o.text || "").slice(0, 18)}` : o.type === "image" ? "Image" : o.type === "rect" ? "Rectangle" : o.type === "circle" ? "Circle" : (o.type === "group" ? "Clipart" : o.type),
     })).reverse());
   }, []);
 
@@ -78,14 +105,6 @@ export default function EditorContent() {
     refreshLayers();
   }, [refreshLayers]);
 
-  const bgParam = searchParams.get("bg");
-
-  useEffect(() => {
-    if (ready && bgParam && gallery) initCanvas("blank");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, bgParam]);
-
-  // Initialize fabric canvas once the gallery choice is made.
   const initCanvas = useCallback(async (family: Family) => {
     const fabric = await import("fabric");
     fabricRef.current = fabric;
@@ -115,6 +134,9 @@ export default function EditorContent() {
       } catch { /* ignore, fall back to whatever the layout already has */ }
     }
 
+    sideJsonRef.current.front = canvas.toJSON();
+    sideJsonRef.current.back = null;
+
     suppressHistoryRef.current = true;
     setTimeout(() => { suppressHistoryRef.current = false; pushHistory(); }, 50);
 
@@ -136,7 +158,6 @@ export default function EditorContent() {
       .split(/[,•\n]/).map(s => s.trim()).filter(Boolean).slice(0, 4);
     const notes = brief?.additional_notes || brief?.target_audience || "Contact info here";
     const accent = brief?.primary_colour && /^#[0-9a-fA-F]{3,8}$/.test(brief.primary_colour) ? brief.primary_colour : (family === "grid" ? "#b91c1c" : family === "corporate" ? "#0f172a" : "#1e293b");
-    const accent2 = brief?.secondary_colour && /^#[0-9a-fA-F]{3,8}$/.test(brief.secondary_colour) ? brief.secondary_colour : "#0ea5e9";
 
     if (family === "hero") {
       const heroH = h * 0.56;
@@ -175,6 +196,26 @@ export default function EditorContent() {
     canvas.renderAll();
   }
 
+  // ---- Front / Back ----
+  const switchSide = async (newSide: Side) => {
+    if (newSide === side) return;
+    const canvas = fabricCanvasRef.current;
+    sideJsonRef.current[side] = canvas.toJSON();
+    suppressHistoryRef.current = true;
+    if (sideJsonRef.current[newSide]) {
+      await canvas.loadFromJSON(sideJsonRef.current[newSide]);
+    } else {
+      canvas.clear();
+      canvas.backgroundColor = "#ffffff";
+    }
+    canvas.renderAll();
+    setSide(newSide);
+    historyRef.current = [JSON.stringify(canvas.toJSON())];
+    historyIndexRef.current = 0;
+    suppressHistoryRef.current = false;
+    refreshLayers();
+  };
+
   // ---- Toolbar actions ----
   const addText = () => {
     const fabric = fabricRef.current, canvas = fabricCanvasRef.current;
@@ -200,6 +241,53 @@ export default function EditorContent() {
       canvas.add(img); canvas.setActiveObject(img); canvas.renderAll();
     };
     reader.readAsDataURL(file);
+  };
+  const addLogo = async () => {
+    const fabric = fabricRef.current, canvas = fabricCanvasRef.current;
+    if (brief?.logo_url) {
+      try {
+        const img = await fabric.FabricImage.fromURL(brief.logo_url, { crossOrigin: "anonymous" });
+        img.scaleToWidth(90);
+        img.set({ left: 20, top: 20 });
+        canvas.add(img); canvas.setActiveObject(img); canvas.renderAll();
+        return;
+      } catch { /* fall through to manual upload */ }
+    }
+    const input = document.createElement("input");
+    input.type = "file"; input.accept = "image/*";
+    input.onchange = () => { if (input.files?.[0]) addImageFile(input.files[0]); };
+    input.click();
+  };
+  const addClipart = async (svg: string) => {
+    const fabric = fabricRef.current, canvas = fabricCanvasRef.current;
+    setShowClipart(false);
+    try {
+      const result = await fabric.loadSVGFromString(svg);
+      const obj = fabric.util.groupSVGElements(result.objects, result.options);
+      obj.scaleToWidth(60);
+      obj.set({ left: 80, top: 80 });
+      canvas.add(obj); canvas.setActiveObject(obj); canvas.renderAll(); pushHistory();
+    } catch (e) {
+      setError("Couldn't add clipart: " + (e instanceof Error ? e.message : "unknown error"));
+    }
+  };
+  const addQrCode = async () => {
+    const text = window.prompt("Enter the URL or text for the QR code:");
+    if (!text) return;
+    setAiLoading(true); setError("");
+    try {
+      const QRCode = (await import("qrcode")).default;
+      const dataUrl = await QRCode.toDataURL(text, { width: 300, margin: 1 });
+      const fabric = fabricRef.current, canvas = fabricCanvasRef.current;
+      const img = await fabric.FabricImage.fromURL(dataUrl);
+      img.scaleToWidth(100);
+      img.set({ left: 60, top: 60 });
+      canvas.add(img); canvas.setActiveObject(img); canvas.renderAll(); pushHistory();
+    } catch (e) {
+      setError("Couldn't generate QR code: " + (e instanceof Error ? e.message : "unknown error"));
+    } finally {
+      setAiLoading(false);
+    }
   };
   const generateAiImage = async () => {
     setAiLoading(true); setError("");
@@ -237,12 +325,31 @@ export default function EditorContent() {
     const c = fabricCanvasRef.current; const o = c.getActiveObject();
     if (o) { o.set("fontSize", size); c.renderAll(); pushHistory(); }
   };
+  const applyBgColor = (color: string) => {
+    setBgColor(color);
+    const c = fabricCanvasRef.current;
+    if (c) { c.backgroundColor = color; c.renderAll(); pushHistory(); }
+  };
   const selectLayer = (indexFromTop: number) => {
     const c = fabricCanvasRef.current;
     const objs = c.getObjects();
     const obj = objs[objs.length - 1 - indexFromTop];
     if (obj) { c.setActiveObject(obj); c.renderAll(); onSelect(obj); }
   };
+
+  // ---- Zoom (uses fabric's native zoom + canvas dimensions, so mouse/object
+  // coordinates stay correct — a pure CSS transform would throw off clicks) ----
+  const applyZoom = (newZoom: number) => {
+    const clamped = Math.max(0.3, Math.min(3, newZoom));
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+    canvas.setZoom(clamped);
+    canvas.setDimensions({ width: CANVAS_BASE_WIDTH * clamped, height: canvasHeight * clamped });
+    setZoom(clamped);
+  };
+  const zoomIn = () => applyZoom(zoom * 1.15);
+  const zoomOut = () => applyZoom(zoom / 1.15);
+  const resetZoom = () => applyZoom(1);
 
   const undo = () => {
     if (historyIndexRef.current <= 0) return;
@@ -265,7 +372,8 @@ export default function EditorContent() {
     setSaving(true); setError("");
     try {
       const canvas = fabricCanvasRef.current;
-      const json = canvas.toJSON();
+      sideJsonRef.current[side] = canvas.toJSON();
+
       const previewDataUrl = canvas.toDataURL({ format: "png", multiplier: 2 });
       const blob = await (await fetch(previewDataUrl)).blob();
       const path = `${briefId || "custom"}/editor-preview-${Date.now()}.png`;
@@ -273,9 +381,9 @@ export default function EditorContent() {
       if (upErr) throw upErr;
       const { data: pub } = supabase.storage.from("designs").getPublicUrl(path);
 
-      const { data: { user } } = await supabase.auth.getUser();
       await supabase.from("designs").insert([{
-        brief_id: briefId || null, image_url: pub.publicUrl, canvas_json: json,
+        brief_id: briefId || null, image_url: pub.publicUrl,
+        canvas_json: { front: sideJsonRef.current.front, back: sideJsonRef.current.back },
         ai_prompt: "[editor] user-edited design", version_number: 0, status: "pending",
       }]);
       if (briefId) await supabase.from("briefs").update({ status: "designs_ready" }).eq("id", briefId);
@@ -291,10 +399,30 @@ export default function EditorContent() {
     setExporting(true); setError("");
     try {
       const canvas = fabricCanvasRef.current;
-      const svg = canvas.toSVG();
+      const currentSide = side;
+      sideJsonRef.current[currentSide] = canvas.toJSON();
+      const zoomBefore = zoom;
+      if (zoomBefore !== 1) { canvas.setZoom(1); canvas.setDimensions({ width: CANVAS_BASE_WIDTH, height: canvasHeight }); }
+
+      // Temporarily load whichever side isn't currently on-screen so we can
+      // export its SVG too, then restore the view exactly as the user left it.
+      const pages: string[] = [];
+      const order: Side[] = ["front", "back"];
+      for (const s of order) {
+        if (!sideJsonRef.current[s]) continue;
+        if (s !== currentSide) { suppressHistoryRef.current = true; await canvas.loadFromJSON(sideJsonRef.current[s]); }
+        pages.push(canvas.toSVG());
+      }
+      // restore original view
+      suppressHistoryRef.current = true;
+      await canvas.loadFromJSON(sideJsonRef.current[currentSide]);
+      if (zoomBefore !== 1) { canvas.setZoom(zoomBefore); canvas.setDimensions({ width: CANVAS_BASE_WIDTH * zoomBefore, height: canvasHeight * zoomBefore }); }
+      canvas.renderAll();
+      suppressHistoryRef.current = false;
+
       const res = await fetch("/api/export-pdf", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ svg, widthMm: pageSize.w, heightMm: pageSize.h, briefId }),
+        body: JSON.stringify({ pages, widthMm: pageSize.w, heightMm: pageSize.h, briefId }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Export failed");
@@ -345,6 +473,13 @@ export default function EditorContent() {
           <ArrowLeft size={15} /> Layouts
         </button>
         <div style={{ width: 1, height: 20, background: "#374151" }} />
+
+        <div style={{ display: "flex", background: "#1f2937", borderRadius: 8, padding: 2 }}>
+          <button onClick={() => switchSide("front")} style={{ background: side === "front" ? "#374151" : "none", border: "none", color: "#f9fafb", fontSize: 12, fontWeight: 600, padding: "6px 12px", borderRadius: 6, cursor: "pointer", fontFamily: "inherit" }}>Front</button>
+          <button onClick={() => switchSide("back")} style={{ background: side === "back" ? "#374151" : "none", border: "none", color: "#f9fafb", fontSize: 12, fontWeight: 600, padding: "6px 12px", borderRadius: 6, cursor: "pointer", fontFamily: "inherit" }}>Back</button>
+        </div>
+        <div style={{ width: 1, height: 20, background: "#374151" }} />
+
         <button onClick={addText} title="Add text" style={toolBtn}><Type size={16} /></button>
         <button onClick={addRect} title="Add rectangle" style={toolBtn}><Square size={16} /></button>
         <button onClick={addCircle} title="Add circle" style={toolBtn}><CircleIcon size={16} /></button>
@@ -352,6 +487,20 @@ export default function EditorContent() {
           <ImageIcon size={16} />
           <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => e.target.files?.[0] && addImageFile(e.target.files[0])} />
         </label>
+        <button onClick={addLogo} title="Add logo" style={toolBtn}><LogoIcon size={16} /></button>
+        <button onClick={addQrCode} title="Add QR code" style={toolBtn}><QrCode size={16} /></button>
+        <div style={{ position: "relative" }}>
+          <button onClick={() => setShowClipart(s => !s)} title="Clipart" style={toolBtn}><Palette size={16} /></button>
+          {showClipart && (
+            <div style={{ position: "absolute", top: "110%", left: 0, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10, padding: 8, display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, zIndex: 10, boxShadow: "0 4px 20px rgba(0,0,0,.12)" }}>
+              {CLIPART.map(c => (
+                <button key={c.name} onClick={() => addClipart(c.svg)} title={c.name} style={{ ...toolBtn, width: 36, height: 36 }}>
+                  <c.Icon size={16} />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <button onClick={generateAiImage} disabled={aiLoading} title="Generate with AI" style={{ ...toolBtn, background: "#f5f3ff", borderColor: "#c4b5fd" }}>
           {aiLoading ? <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> : <Sparkles size={16} color="#7c3aed" />}
         </button>
@@ -361,6 +510,12 @@ export default function EditorContent() {
         <button onClick={bringForward} title="Bring forward" style={toolBtn}><BringToFront size={16} /></button>
         <button onClick={sendBackward} title="Send backward" style={toolBtn}><SendToBack size={16} /></button>
         <button onClick={deleteSelected} title="Delete" style={toolBtn}><Trash2 size={16} /></button>
+        <div style={{ width: 1, height: 20, background: "#374151" }} />
+        <button onClick={zoomOut} title="Zoom out" style={toolBtn}><ZoomOut size={16} /></button>
+        <span style={{ color: "#9ca3af", fontSize: 12, minWidth: 38, textAlign: "center" }}>{Math.round(zoom * 100)}%</span>
+        <button onClick={zoomIn} title="Zoom in" style={toolBtn}><ZoomIn size={16} /></button>
+        <button onClick={resetZoom} title="Reset zoom" style={toolBtn}><Maximize size={16} /></button>
+
         <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
           <button onClick={save} disabled={saving} style={{ background: indigo, border: "none", borderRadius: 8, color: "#fff", fontSize: 13, fontWeight: 600, padding: "8px 16px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontFamily: "inherit" }}>
             <Save size={14} /> {saving ? "Saving..." : "Save"}
@@ -375,16 +530,18 @@ export default function EditorContent() {
 
       <div style={{ display: "flex", gap: 16, padding: 20 }}>
         <div style={{ width: 180, flexShrink: 0 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", marginBottom: 8 }}>Layers</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", marginBottom: 8 }}>Layers ({side})</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 20 }}>
             {layers.map(l => (
               <button key={l.id} onClick={() => selectLayer(l.id)} style={{ textAlign: "left", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 6, padding: "6px 10px", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>{l.label}</button>
             ))}
           </div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", marginBottom: 8 }}>Page background</div>
+          <input type="color" value={bgColor} onChange={e => applyBgColor(e.target.value)} style={{ width: "100%", height: 32 }} />
         </div>
 
-        <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
-          <div style={{ background: "#fff", boxShadow: "0 4px 20px rgba(0,0,0,.1)" }}>
+        <div style={{ flex: 1, display: "flex", justifyContent: "center", overflow: "auto" }}>
+          <div style={{ background: "#fff", boxShadow: "0 4px 20px rgba(0,0,0,.1)", height: "fit-content" }}>
             <canvas ref={canvasElRef} />
           </div>
         </div>

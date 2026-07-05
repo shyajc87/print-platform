@@ -1,33 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/lib/supabase/server";
-import { renderManyToPdfAndPng } from "@/lib/renderPdf";
+import { renderCombinedPdf } from "@/lib/renderPdf";
 
 export const maxDuration = 60;
 
-// Takes the editor's exported SVG (from fabric.js canvas.toSVG(), which keeps
-// text as real vector text, not flattened pixels) and turns it into a
-// print-ready PDF at the correct physical page size.
+function wrapSvg(svg: string): string {
+  return `<style>*{margin:0;padding:0;}svg{display:block;width:100%;height:100%;}</style>${svg}`;
+}
+
+// Takes the editor's exported SVG page(s) (from fabric.js canvas.toSVG(),
+// which keeps text as real vector text, not flattened pixels) and turns them
+// into ONE print-ready PDF at the correct physical page size. Accepts either
+// a single `svg` (legacy, single page) or a `pages` array (e.g. [front, back]
+// -> a 2-page PDF).
 export async function POST(req: NextRequest) {
   try {
-    const { svg, widthMm, heightMm, briefId } = await req.json();
-    if (!svg || !widthMm || !heightMm) {
-      return NextResponse.json({ error: "svg, widthMm, and heightMm are required" }, { status: 400 });
+    const { svg, pages, widthMm, heightMm, briefId } = await req.json();
+    const svgPages: string[] = pages && Array.isArray(pages) ? pages : svg ? [svg] : [];
+    if (svgPages.length === 0 || !widthMm || !heightMm) {
+      return NextResponse.json({ error: "pages (or svg), widthMm, and heightMm are required" }, { status: 400 });
     }
 
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
-      * { margin: 0; padding: 0; }
-      html, body { width: 100%; height: 100%; }
-      svg { display: block; width: 100%; height: 100%; }
-    </style></head><body>${svg}</body></html>`;
-
-    const [rendered] = await renderManyToPdfAndPng([html], { w: widthMm, h: heightMm });
-    if ("error" in rendered) {
-      return NextResponse.json({ error: `Render failed: ${rendered.error}` }, { status: 500 });
-    }
+    const pdfBuffer = await renderCombinedPdf(svgPages.map(wrapSvg), { w: widthMm, h: heightMm });
 
     const supabase = await createServerClient();
     const path = `${briefId || "custom"}/edited-${Date.now()}.pdf`;
-    const { error: uploadErr } = await supabase.storage.from("designs").upload(path, rendered.pdf, {
+    const { error: uploadErr } = await supabase.storage.from("designs").upload(path, pdfBuffer, {
       contentType: "application/pdf", upsert: true,
     });
     if (uploadErr) return NextResponse.json({ error: `Upload failed: ${uploadErr.message}` }, { status: 500 });
