@@ -82,6 +82,10 @@ export default function DashboardPage() {
         .dash-layout { width: 100%; margin: 0; padding: 28px 32px; display: flex; gap: 24px; align-items: stretch; box-sizing: border-box; }
         .dash-sidebar { width: 260px; flex-shrink: 0; display: flex; flex-direction: column; gap: 16px; order: 2; }
         .dash-content { flex: 1; min-width: 0; padding: 0; order: 1; display: flex; flex-direction: column; min-height: 0; }
+        .dash-quick-actions { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 10px; }
+        @media (max-width: 700px) {
+          .dash-quick-actions { grid-template-columns: 1fr 1fr; }
+        }
         .dash-content-scroll { overflow-y: auto; padding-right: 4px; }
         .sidebar-item:hover { background: #f0f9ff !important; }
         @media (min-width: 769px) {
@@ -180,30 +184,32 @@ export default function DashboardPage() {
           ))}
         </div>
 
-        <button
-          onClick={() => router.push("/brief")}
-          style={{ width: "100%", background: sky, color: "#fff", border: "none", borderRadius: 12, fontSize: 14, fontWeight: 600, padding: "14px", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 10, boxShadow: "0 2px 8px rgba(14,165,233,0.3)" }}
-        >
-          <Plus size={18} /> New project
-        </button>
-        <button
-          onClick={() => router.push("/editor")}
-          style={{ width: "100%", background: "#fff", color: "#7c3aed", border: "1.5px solid #ddd6fe", borderRadius: 12, fontSize: 13, fontWeight: 600, padding: "12px", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 10 }}
-        >
-          Design from scratch
-        </button>
-        <button
-          onClick={() => router.push("/my-designs")}
-          style={{ width: "100%", background: "#fff", color: "#374151", border: "1.5px solid #e2e8f0", borderRadius: 12, fontSize: 13, fontWeight: 600, padding: "12px", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 10 }}
-        >
-          My Designs
-        </button>
-        <button
-          onClick={() => router.push("/agencies")}
-          style={{ width: "100%", background: "#fff", color: "#374151", border: "1.5px solid #e2e8f0", borderRadius: 12, fontSize: 13, fontWeight: 600, padding: "12px", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 24 }}
-        >
-          Get a custom designer
-        </button>
+        <div className="dash-quick-actions" style={{ marginBottom: 20 }}>
+          <button
+            onClick={() => router.push("/brief")}
+            style={{ background: sky, color: "#fff", border: "none", borderRadius: 12, fontSize: 13, fontWeight: 600, padding: "13px 10px", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, boxShadow: "0 2px 8px rgba(14,165,233,0.3)" }}
+          >
+            <Plus size={16} /> New project
+          </button>
+          <button
+            onClick={() => router.push("/editor")}
+            style={{ background: "#fff", color: "#7c3aed", border: "1.5px solid #ddd6fe", borderRadius: 12, fontSize: 12, fontWeight: 600, padding: "13px 8px", cursor: "pointer", fontFamily: "inherit" }}
+          >
+            Design from scratch
+          </button>
+          <button
+            onClick={() => router.push("/my-designs")}
+            style={{ background: "#fff", color: "#374151", border: "1.5px solid #e2e8f0", borderRadius: 12, fontSize: 12, fontWeight: 600, padding: "13px 8px", cursor: "pointer", fontFamily: "inherit" }}
+          >
+            My Designs
+          </button>
+          <button
+            onClick={() => router.push("/agencies")}
+            style={{ background: "#fff", color: "#374151", border: "1.5px solid #e2e8f0", borderRadius: 12, fontSize: 12, fontWeight: 600, padding: "13px 8px", cursor: "pointer", fontFamily: "inherit" }}
+          >
+            Custom designer
+          </button>
+        </div>
 
         <div style={{ marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <span style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px" }}>
