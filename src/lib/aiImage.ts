@@ -150,3 +150,77 @@ export function pollinationsUrl(prompt: string, seed: number): string {
   const encoded = encodeURIComponent(`photographic background, no text, no logos, ${prompt}`);
   return `https://image.pollinations.ai/prompt/${encoded}?width=1000&height=1000&seed=${seed}&nologo=true&enhance=true&model=flux`;
 }
+
+// ---------------------------------------------------------------------------
+// "AI Express" mode: single-shot whole-design generation (like Emergent's
+// approach). The AI renders EVERYTHING itself — brand name, price, badges,
+// phone — as pixels in one image. No template compositing. Faster, more
+// "designed"-looking when it works, but text accuracy is not guaranteed —
+// this is the tradeoff being deliberately offered as a user choice, not
+// hidden. Kept clearly separate from the reliable "Precision Studio" path.
+// ---------------------------------------------------------------------------
+
+export interface FullDesignBrief extends BriefForImage {
+  quantity?: string;
+  additional_notes?: string;
+  logo_url?: string | null;
+  contact_phone?: string | null;
+  badges?: string | null;
+  price1_amount?: string | null;
+  price1_label?: string | null;
+  price2_amount?: string | null;
+  price2_label?: string | null;
+}
+
+export function buildFullDesignPrompt(brief: FullDesignBrief): string {
+  const lines = [
+    `Design a complete, professional print marketing poster/card for the brand "${brief.brand_name}".`,
+    `Industry: ${brief.industry}.`,
+    `Promoting: ${brief.product_description}.`,
+  ];
+  if (brief.key_message) lines.push(`Headline/key message to display prominently: "${brief.key_message}"`);
+  if (brief.location) lines.push(`Location to display: ${brief.location}`);
+  if (brief.badges) lines.push(`Include small trust badges/icons for: ${brief.badges}`);
+  if (brief.price1_amount) lines.push(`Include a price call-out box showing "${brief.price1_amount}"${brief.price1_label ? ` with the label "${brief.price1_label}"` : ""}`);
+  if (brief.price2_amount) lines.push(`Include a second price call-out box showing "${brief.price2_amount}"${brief.price2_label ? ` with the label "${brief.price2_label}"` : ""}`);
+  if (brief.contact_phone) lines.push(`Include the contact phone number "${brief.contact_phone}" clearly legible, e.g. in a footer bar.`);
+  const colours = [brief.primary_colour, brief.secondary_colour].filter(Boolean).join(" and ");
+  if (colours) lines.push(`Use these brand colours: ${colours}.`);
+  if (brief.mood) lines.push(`Overall style/mood: ${brief.mood}.`);
+  lines.push(
+    "Render ALL text (brand name, headline, price, phone, badges) directly and legibly in the image itself, correctly spelled, well-composed, professional advertising layout, high production quality."
+  );
+  return lines.join(" ");
+}
+
+export async function generateFullAiDesign(
+  prompt: string,
+  refImages: { data: string; mimeType: string }[]
+): Promise<{ img: string | null; err: string | null }> {
+  try {
+    const parts: Record<string, unknown>[] = [];
+    for (const ref of refImages) parts.push({ inlineData: { mimeType: ref.mimeType, data: ref.data } });
+    parts.push({ text: prompt });
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${IMAGE_MODEL}:generateContent?key=${GEMINI_KEY}`,
+      { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts }],
+          generationConfig: { responseModalities: ["IMAGE"] },
+        }),
+      }
+    );
+    if (!res.ok) {
+      const errText = await res.text();
+      return { img: null, err: `HTTP ${res.status}: ${errText.slice(0, 200)}` };
+    }
+    const data = await res.json();
+    const part = data?.candidates?.[0]?.content?.parts?.find(
+      (p: { inlineData?: { data: string; mimeType: string } }) => p.inlineData
+    );
+    if (!part?.inlineData?.data) return { img: null, err: "no inlineData in response" };
+    return { img: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`, err: null };
+  } catch (e) {
+    return { img: null, err: `exception: ${e instanceof Error ? e.message : "unknown"}` };
+  }
+}

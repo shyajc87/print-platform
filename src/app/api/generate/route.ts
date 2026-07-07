@@ -2,7 +2,10 @@ import { createClient as createServerClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 import { renderBrochureHtml, getPageSizeMm } from "@/lib/templates";
 import { renderManyToPdfAndPng } from "@/lib/renderPdf";
-import { buildImagePrompt, fetchRefImageAsBase64, generateWithNanoBanana, pollinationsUrl, ANGLE_VARIANTS } from "@/lib/aiImage";
+import {
+  buildImagePrompt, fetchRefImageAsBase64, generateWithNanoBanana, pollinationsUrl, ANGLE_VARIANTS,
+  buildFullDesignPrompt, generateFullAiDesign,
+} from "@/lib/aiImage";
 
 export const maxDuration = 60;
 
@@ -34,10 +37,6 @@ async function uploadBuffer(
   }
 }
 
-// The AI image comes in either as a base64 data URL (Nano Banana) or a remote
-// URL (Pollinations fallback). Either way, we pull the raw bytes down and
-// re-upload to OUR OWN storage — this is what lets "Customize in editor"
-// later load the clean, untouched photo instead of the composited design.
 async function toBufferAndType(url: string): Promise<{ buffer: Buffer; contentType: string }> {
   if (url.startsWith("data:")) {
     const [meta, b64] = url.split(",");
@@ -53,17 +52,17 @@ async function toBufferAndType(url: string): Promise<{ buffer: Buffer; contentTy
 export async function POST(req: NextRequest) {
   const debug: string[] = [];
   try {
-    const { briefId } = await req.json();
+    const { briefId, mode } = await req.json();
+    const generationMode: "template" | "ai_express" = mode === "ai_express" ? "ai_express" : "template";
     const supabase = await createServerClient();
 
     const { data: brief, error: briefError } = await supabase.from("briefs").select("*").eq("id", briefId).single();
     if (briefError || !brief) return NextResponse.json({ error: "Brief not found", detail: briefError?.message }, { status: 404 });
 
     debug.push(`key_present: ${GEMINI_KEY ? "yes-" + GEMINI_KEY.slice(0, 6) : "MISSING"}`);
+    debug.push(`mode: ${generationMode}`);
 
     await supabase.from("briefs").update({ status: "generating" }).eq("id", briefId);
-    const imagePrompt = await buildImagePrompt(brief as Brief);
-    const variants = ANGLE_VARIANTS.map(angle => `${imagePrompt} ${angle}`);
 
     const refImages: { data: string; mimeType: string }[] = [];
     if (brief.reference_image_url) {
@@ -72,6 +71,50 @@ export async function POST(req: NextRequest) {
       else debug.push("reference image: failed to fetch, proceeding without it");
     }
 
+    const pageSize = getPageSizeMm(brief.size);
+    const designs: Array<{ image_url: string; pdf_url: string; raw_image_url: string | null; engine: string }> = [];
+
+    if (generationMode === "ai_express") {
+      // ---- AI Express: single-shot whole-design generation, no template layer ----
+      const fullPrompt = buildFullDesignPrompt(brief as Brief);
+      const results = await Promise.all([0, 1].map(async (i) => {
+        const nano = await generateFullAiDesign(fullPrompt, refImages);
+        if (nano.img) { debug.push(`v${i + 1}: nano (ai_express) OK`); return { url: nano.img, engine: "nano-banana-2-express" }; }
+        debug.push(`v${i + 1}: nano (ai_express) failed → ${nano.err}`);
+        return null;
+      }));
+
+      const htmls = results.filter(Boolean).map(r =>
+        `<!DOCTYPE html><html><body style="margin:0"><img src="${r!.url}" style="width:100%;height:100%;object-fit:cover;display:block;"/></body></html>`
+      );
+      const rendered = await renderManyToPdfAndPng(htmls, pageSize);
+      for (let i = 0; i < rendered.length; i++) {
+        const r = rendered[i];
+        if ("error" in r) { debug.push(`v${i + 1}: pdf wrap failed → ${r.error}`); continue; }
+        const png = await uploadBuffer(supabase, r.png, "image/png", briefId, `express-${i + 1}.png`);
+        const pdf = await uploadBuffer(supabase, r.pdf, "application/pdf", briefId, `express-${i + 1}.pdf`);
+        if (!png.url || !pdf.url) { debug.push(`v${i + 1}: upload failed → ${png.err || pdf.err}`); continue; }
+        designs.push({ image_url: png.url, pdf_url: pdf.url, raw_image_url: png.url, engine: results[i]!.engine });
+      }
+
+      if (designs.length === 0) throw new Error("AI Express generation failed for all attempts. See debug for details.");
+
+      const inserts = designs.map((d, i) => ({
+        brief_id: briefId, image_url: d.image_url, pdf_url: d.pdf_url, raw_image_url: d.raw_image_url,
+        ai_prompt: `[${d.engine}] ${fullPrompt}`, generation_mode: "ai_express",
+        version_number: i + 1, status: "pending",
+      }));
+      const { data: insertedDesigns, error: designError } = await supabase.from("designs").insert(inserts).select();
+      if (designError) throw new Error(designError.message);
+
+      await supabase.from("briefs").update({ status: "designs_ready" }).eq("id", briefId);
+      return NextResponse.json({ success: true, designs: insertedDesigns, briefId, debug });
+    }
+
+    // ---- Precision Studio (default): AI background only + real template text ----
+    const imagePrompt = await buildImagePrompt(brief as Brief);
+    const variants = ANGLE_VARIANTS.map(angle => `${imagePrompt} ${angle}`);
+
     const backgrounds = await Promise.all(variants.map(async (prompt, i) => {
       const nano = await generateWithNanoBanana(prompt, refImages);
       if (nano.img) { debug.push(`v${i + 1}: nano OK`); return { url: nano.img, engine: "nano-banana-2" }; }
@@ -79,8 +122,6 @@ export async function POST(req: NextRequest) {
       return { url: pollinationsUrl(prompt, i * 77 + 200), engine: "pollinations" };
     }));
 
-    // Save the RAW background image (untouched, before any text/template is
-    // composited on top) — this is what the editor should start from.
     const rawUploads = await Promise.all(backgrounds.map(async (bg, i) => {
       try {
         const { buffer, contentType } = await toBufferAndType(bg.url);
@@ -92,10 +133,8 @@ export async function POST(req: NextRequest) {
     }));
 
     const htmls = backgrounds.map(bg => renderBrochureHtml(brief as Brief, bg.url));
-    const pageSize = getPageSizeMm(brief.size);
     const rendered = await renderManyToPdfAndPng(htmls, pageSize);
 
-    const designs: Array<{ image_url: string; pdf_url: string; raw_image_url: string | null; engine: string }> = [];
     for (let i = 0; i < rendered.length; i++) {
       const r = rendered[i];
       if ("error" in r) { debug.push(`v${i + 1}: template render failed → ${r.error}`); continue; }
@@ -109,8 +148,8 @@ export async function POST(req: NextRequest) {
     if (designs.length === 0) throw new Error("All concepts failed to render. See debug for details.");
 
     const inserts = designs.map((d, i) => ({
-      brief_id: briefId, user_id: brief.user_id, image_url: d.image_url, pdf_url: d.pdf_url, raw_image_url: d.raw_image_url,
-      ai_prompt: `[${d.engine}] ${imagePrompt}`,
+      brief_id: briefId, image_url: d.image_url, pdf_url: d.pdf_url, raw_image_url: d.raw_image_url,
+      ai_prompt: `[${d.engine}] ${imagePrompt}`, generation_mode: "template",
       version_number: i + 1, status: "pending",
     }));
     const { data: insertedDesigns, error: designError } = await supabase.from("designs").insert(inserts).select();

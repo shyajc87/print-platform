@@ -9,6 +9,7 @@ interface Design {
   image_url: string;
   pdf_url?: string;
   raw_image_url?: string;
+  generation_mode?: string;
   version_number: number;
   status: string;
   ai_prompt: string;
@@ -33,6 +34,8 @@ export default function DesignsContent() {
     loadOrGenerate();
   }, [briefId]);
 
+  const [showModePicker, setShowModePicker] = useState(false);
+
   const loadOrGenerate = async () => {
     setChecking(true);
     try {
@@ -54,11 +57,11 @@ export default function DesignsContent() {
       }
 
       setChecking(false);
-      await generateDesigns();
+      setShowModePicker(true);
     } catch (err) {
       console.error(err);
       setChecking(false);
-      await generateDesigns();
+      setShowModePicker(true);
     }
   };
 
@@ -69,13 +72,14 @@ export default function DesignsContent() {
     return () => { window.removeEventListener("keydown", onKey); document.body.style.overflow = ""; };
   }, [lightbox]);
 
-  const generateDesigns = async () => {
+  const generateDesigns = async (mode: "template" | "ai_express" = "template") => {
+    setShowModePicker(false);
     setGenerating(true); setError("");
     try {
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ briefId }),
+        body: JSON.stringify({ briefId, mode }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Generation failed");
@@ -132,13 +136,36 @@ export default function DesignsContent() {
 
       <div style={{ maxWidth: 1000, margin: "0 auto", padding: "36px 24px" }}>
 
-        {(generating || checking) && (
+        {checking && !showModePicker && (
+          <div style={{ textAlign: "center", padding: "80px 0", color: "#94a3b8", fontSize: 14 }}>Loading...</div>
+        )}
+
+        {showModePicker && !generating && (
+          <div style={{ textAlign: "center", padding: "40px 0" }}>
+            <h2 style={{ fontSize: 22, fontWeight: 700, color: navy, marginBottom: 8 }}>How should we generate your designs?</h2>
+            <p style={{ fontSize: 14, color: "#6b7280", marginBottom: 32 }}>Two ways to get there — try either, or both, and see which you prefer.</p>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, maxWidth: 760, margin: "0 auto" }}>
+              <div onClick={() => generateDesigns("template")} style={{ cursor: "pointer", background: "#fff", border: "2px solid #e7e5e0", borderRadius: 16, padding: 24, textAlign: "left" }}>
+                <div style={{ display: "inline-flex", background: "#eef2ff", color: indigo, fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 20, marginBottom: 12 }}>RECOMMENDED</div>
+                <h3 style={{ fontSize: 17, fontWeight: 700, color: navy, marginBottom: 6 }}>Precision Studio</h3>
+                <p style={{ fontSize: 13, color: "#6b7280", lineHeight: 1.6 }}>AI generates the background photo; your brand name, price, phone, and badges are laid out as real, always-correctly-spelled text on top. More reliable for real print jobs.</p>
+              </div>
+              <div onClick={() => generateDesigns("ai_express")} style={{ cursor: "pointer", background: "#fff", border: "2px solid #e7e5e0", borderRadius: 16, padding: 24, textAlign: "left" }}>
+                <div style={{ display: "inline-flex", background: "#f5f3ff", color: "#7c3aed", fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 20, marginBottom: 12 }}>EXPERIMENTAL</div>
+                <h3 style={{ fontSize: 17, fontWeight: 700, color: navy, marginBottom: 6 }}>AI Express</h3>
+                <p style={{ fontSize: 13, color: "#6b7280", lineHeight: 1.6 }}>AI designs the entire poster in one shot — everything, including text, as one image. Can look more "designed," but spelling and layout accuracy aren't guaranteed. Worth trying and comparing.</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {generating && (
           <div style={{ textAlign: "center", padding: "80px 0" }}>
             <div style={{ width: 56, height: 56, borderRadius: 16, background: indigo, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px", boxShadow: "0 4px 16px rgba(79,70,229,.4)" }}>
               <Sparkles size={24} color="#fff" />
             </div>
             <h2 style={{ fontSize: 22, fontWeight: 700, color: navy, marginBottom: 8 }}>Generating your designs</h2>
-            <p style={{ fontSize: 14, color: "#6b7280", marginBottom: 32 }}>AI is creating 3 unique concepts tailored to the Indian market</p>
+            <p style={{ fontSize: 14, color: "#6b7280", marginBottom: 32 }}>AI is creating unique concepts tailored to the Indian market</p>
             <div style={{ display: "flex", flexDirection: "column", gap: 12, maxWidth: 320, margin: "0 auto" }}>
               {["Reading your brief...", "Writing design prompt...", "Generating concepts..."].map((step, i) => (
                 <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, background: "#fff", padding: "12px 16px", borderRadius: 10, border: "1px solid #e7e5e0" }}>
@@ -153,15 +180,23 @@ export default function DesignsContent() {
         {error && (
           <div style={{ textAlign: "center", padding: "60px 0" }}>
             <div style={{ fontSize: 16, color: "#dc2626", marginBottom: 16 }}>{error}</div>
-            <button onClick={generateDesigns} style={{ background: indigo, border: "none", borderRadius: 8, color: "#fff", fontSize: 14, fontWeight: 600, padding: "12px 24px", cursor: "pointer", fontFamily: "inherit" }}>Try again</button>
+            <button onClick={() => setShowModePicker(true)} style={{ background: indigo, border: "none", borderRadius: 8, color: "#fff", fontSize: 14, fontWeight: 600, padding: "12px 24px", cursor: "pointer", fontFamily: "inherit" }}>Try again</button>
           </div>
         )}
 
         {!generating && !checking && !error && designs.length > 0 && !approved && (
           <>
-            <div style={{ marginBottom: 28 }}>
-              <h2 style={{ fontSize: 24, fontWeight: 700, color: navy, marginBottom: 6 }}>Choose your direction</h2>
-              <p style={{ fontSize: 14, color: "#6b7280" }}>Tap any design to view it full-size. Click to select your favourite.</p>
+            <div style={{ marginBottom: 28, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+              <div>
+                <h2 style={{ fontSize: 24, fontWeight: 700, color: navy, marginBottom: 6 }}>Choose your direction</h2>
+                <p style={{ fontSize: 14, color: "#6b7280" }}>Tap any design to view it full-size. Click to select your favourite.</p>
+              </div>
+              <button
+                onClick={() => generateDesigns(designs[0]?.generation_mode === "ai_express" ? "template" : "ai_express")}
+                style={{ background: "#fff", border: "1.5px solid #ddd6fe", borderRadius: 10, color: "#7c3aed", fontSize: 12, fontWeight: 600, padding: "9px 16px", cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}
+              >
+                Try {designs[0]?.generation_mode === "ai_express" ? "Precision Studio" : "AI Express"} instead
+              </button>
             </div>
 
             <div className="designs-grid" style={{ marginBottom: 32 }}>
