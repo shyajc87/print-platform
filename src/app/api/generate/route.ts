@@ -84,9 +84,12 @@ export async function POST(req: NextRequest) {
         return null;
       }));
 
-      const htmls = results.filter(Boolean).map(r =>
-        `<!DOCTYPE html><html><body style="margin:0"><img src="${r!.url}" style="width:100%;height:100%;object-fit:cover;display:block;"/></body></html>`
-      );
+      const htmls = results.filter(Boolean).map(r => {
+        const logoOverlay = brief.logo_url
+          ? `<img src="${brief.logo_url}" style="position:absolute; top:4%; left:4%; max-width:18%; max-height:12%; object-fit:contain;" />`
+          : "";
+        return `<!DOCTYPE html><html><body style="margin:0"><div style="position:relative; width:100%; height:100%;"><img src="${r!.url}" style="width:100%;height:100%;object-fit:cover;display:block;"/>${logoOverlay}</div></body></html>`;
+      });
       const rendered = await renderManyToPdfAndPng(htmls, pageSize);
       for (let i = 0; i < rendered.length; i++) {
         const r = rendered[i];

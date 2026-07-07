@@ -173,23 +173,48 @@ export interface FullDesignBrief extends BriefForImage {
 }
 
 export function buildFullDesignPrompt(brief: FullDesignBrief): string {
-  const lines = [
-    `Design a complete, professional print marketing poster/card for the brand "${brief.brand_name}".`,
-    `Industry: ${brief.industry}.`,
-    `Promoting: ${brief.product_description}.`,
-  ];
-  if (brief.key_message) lines.push(`Headline/key message to display prominently: "${brief.key_message}"`);
-  if (brief.location) lines.push(`Location to display: ${brief.location}`);
-  if (brief.badges) lines.push(`Include small trust badges/icons for: ${brief.badges}`);
-  if (brief.price1_amount) lines.push(`Include a price call-out box showing "${brief.price1_amount}"${brief.price1_label ? ` with the label "${brief.price1_label}"` : ""}`);
-  if (brief.price2_amount) lines.push(`Include a second price call-out box showing "${brief.price2_amount}"${brief.price2_label ? ` with the label "${brief.price2_label}"` : ""}`);
-  if (brief.contact_phone) lines.push(`Include the contact phone number "${brief.contact_phone}" clearly legible, e.g. in a footer bar.`);
-  const colours = [brief.primary_colour, brief.secondary_colour].filter(Boolean).join(" and ");
-  if (colours) lines.push(`Use these brand colours: ${colours}.`);
-  if (brief.mood) lines.push(`Overall style/mood: ${brief.mood}.`);
+  const lines: string[] = [];
+
+  // Brand name gets an emphasized, explicitly flagged instruction of its own —
+  // models weight instructions marked as high-priority more heavily, and this
+  // is the single most important piece of text to get exactly right.
   lines.push(
-    "Render ALL text (brand name, headline, price, phone, badges) directly and legibly in the image itself, correctly spelled, well-composed, professional advertising layout, high production quality."
+    `CRITICAL: The brand name "${brief.brand_name}" must be rendered with EXACT spelling, fully visible, positioned with at least an 8% safe margin from every edge of the image so it is never cropped or cut off.`
   );
+
+  lines.push(`Design a complete, professional print marketing poster/card for this brand.`);
+  lines.push(`Industry: ${brief.industry}.`);
+
+  // Remaining fields as explicit, enumerated "Label: value" lines rather than
+  // folded into prose — much easier for the model to render each one precisely
+  // instead of paraphrasing or dropping details.
+  const fields: [string, string | null | undefined][] = [
+    ["Promoting", brief.product_description],
+    ["Headline", brief.key_message],
+    ["Location", brief.location],
+    ["Trust badges/icons to include", brief.badges],
+    ["Price 1", brief.price1_amount ? `${brief.price1_amount}${brief.price1_label ? ` (${brief.price1_label})` : ""}` : null],
+    ["Price 2", brief.price2_amount ? `${brief.price2_amount}${brief.price2_label ? ` (${brief.price2_label})` : ""}` : null],
+    ["Phone number", brief.contact_phone],
+  ];
+  for (const [label, value] of fields) {
+    if (value) lines.push(`${label}: "${value}" — render this exact text visibly and spelled correctly.`);
+  }
+
+  const colours = [brief.primary_colour, brief.secondary_colour].filter(Boolean).join(" and ");
+  if (colours) lines.push(`Brand colours: ${colours}.`);
+  if (brief.mood) lines.push(`Style/mood: ${brief.mood}.`);
+
+  // Logo hint: if a real logo exists, don't have the model hallucinate its own —
+  // reserve clean space for it instead (a real logo can be composited in later).
+  if (brief.logo_url) {
+    lines.push(`A real logo will be placed separately — reserve a clean, simple rectangular area (e.g. top-left corner) for it. Do NOT draw or invent any logo graphic yourself.`);
+  }
+
+  lines.push(
+    `Composition rules: maintain a safe margin from all edges for every text element, sharp and legible typography throughout, professional commercial print-advertisement quality, well-balanced layout.`
+  );
+
   return lines.join(" ");
 }
 
