@@ -4,7 +4,7 @@ import { renderBrochureHtml, getPageSizeMm } from "@/lib/templates";
 import { renderManyToPdfAndPng } from "@/lib/renderPdf";
 import {
   buildImagePrompt, fetchRefImageAsBase64, generateWithNanoBanana, pollinationsUrl, ANGLE_VARIANTS,
-  buildFullDesignPrompt, generateFullAiDesign,
+  buildFullDesignPrompt, generateFullAiDesign, generateFullAiDesignWithGptImage,
 } from "@/lib/aiImage";
 
 export const maxDuration = 60;
@@ -78,9 +78,12 @@ export async function POST(req: NextRequest) {
       // ---- AI Express: single-shot whole-design generation, no template layer ----
       const fullPrompt = buildFullDesignPrompt(brief as Brief);
       const results = await Promise.all([0, 1].map(async (i) => {
+        const gpt = await generateFullAiDesignWithGptImage(fullPrompt, pageSize);
+        if (gpt.img) { debug.push(`v${i + 1}: gpt-image-1 OK`); return { url: gpt.img, engine: "gpt-image-1" }; }
+        debug.push(`v${i + 1}: gpt-image-1 failed → ${gpt.err}, falling back to nano banana`);
         const nano = await generateFullAiDesign(fullPrompt, refImages);
-        if (nano.img) { debug.push(`v${i + 1}: nano (ai_express) OK`); return { url: nano.img, engine: "nano-banana-2-express" }; }
-        debug.push(`v${i + 1}: nano (ai_express) failed → ${nano.err}`);
+        if (nano.img) { debug.push(`v${i + 1}: nano (ai_express fallback) OK`); return { url: nano.img, engine: "nano-banana-2-express" }; }
+        debug.push(`v${i + 1}: nano (ai_express fallback) also failed → ${nano.err}`);
         return null;
       }));
 

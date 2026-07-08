@@ -249,3 +249,51 @@ export async function generateFullAiDesign(
     return { img: null, err: `exception: ${e instanceof Error ? e.message : "unknown"}` };
   }
 }
+
+const OPENAI_KEY = process.env.OPENAI_API_KEY;
+
+// Maps our physical print page dimensions to GPT-Image-1's supported sizes
+// (it only accepts 1024x1024, 1536x1024, or 1024x1536 — no arbitrary sizes).
+function gptImageSize(pageSizeMm?: { w: number; h: number }): "1024x1024" | "1536x1024" | "1024x1536" {
+  if (!pageSizeMm) return "1024x1536";
+  const ratio = pageSizeMm.w / pageSizeMm.h;
+  if (ratio > 1.15) return "1536x1024"; // landscape
+  if (ratio < 0.87) return "1024x1536"; // portrait
+  return "1024x1024"; // roughly square
+}
+
+// GPT-Image-1 (OpenAI) as a second engine option for AI Express whole-design
+// generation. In testing (ChatGPT's own image tool, same underlying model)
+// this produced noticeably more accurate in-image text than Nano Banana for
+// dense, multi-element poster layouts — worth offering as an alternative,
+// not a guaranteed universal improvement.
+export async function generateFullAiDesignWithGptImage(
+  prompt: string,
+  pageSizeMm?: { w: number; h: number }
+): Promise<{ img: string | null; err: string | null }> {
+  if (!OPENAI_KEY) return { img: null, err: "OPENAI_API_KEY not set" };
+  try {
+    const res = await fetch("https://api.openai.com/v1/images/generations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${OPENAI_KEY}` },
+      body: JSON.stringify({
+        model: "gpt-image-1",
+        prompt,
+        size: gptImageSize(pageSizeMm),
+        quality: "high",
+        output_format: "png",
+      }),
+    });
+    if (!res.ok) {
+      const errText = await res.text();
+      return { img: null, err: `HTTP ${res.status}: ${errText.slice(0, 300)}` };
+    }
+    const data = await res.json();
+    const item = data?.data?.[0];
+    if (item?.b64_json) return { img: `data:image/png;base64,${item.b64_json}`, err: null };
+    if (item?.url) return { img: item.url, err: null }; // fallback, though gpt-image-1 normally returns b64
+    return { img: null, err: "no image data in response" };
+  } catch (e) {
+    return { img: null, err: `exception: ${e instanceof Error ? e.message : "unknown"}` };
+  }
+}
