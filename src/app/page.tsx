@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import AuthModal from "@/components/AuthModal";
+import LiveDemo from "@/components/LiveDemo";
 import {
   Printer, Search, ShoppingCart, Sparkles, FileText, LayoutGrid, Package,
   Shirt, Gift, PenTool, Award, Truck, ShieldCheck, Receipt, Building2,
@@ -180,7 +181,7 @@ export default function Home() {
             <Printer size={16} color={C.amber} />
           </div>
           <span style={{ fontSize: 18, fontWeight: 700, color: C.ink, letterSpacing: "-0.3px" }}>
-            Print<span style={{ color: C.indigo }}>AI</span>
+            <span style={{ color: C.indigo }}>Talaio</span>
           </span>
         </div>
 
@@ -256,6 +257,8 @@ export default function Home() {
         </div>
       </div>
 
+      <LiveDemo />
+
       <div className="trust-row" style={{ display: "flex", background: C.card, borderBottom: `1px solid ${C.border}`, maxWidth: 1100, margin: "0 auto" }}>
         {TRUST.map(({ Icon, title, sub }, i) => (
           <div key={title} className="trust-item" style={{ flex: 1, padding: "16px 20px", display: "flex", alignItems: "center", gap: 12, borderRight: i < TRUST.length - 1 ? `1px solid ${C.border}` : "none" }}>
@@ -304,9 +307,9 @@ export default function Home() {
             <div style={{ width: 28, height: 28, borderRadius: 7, background: "#1f2937", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <Printer size={14} color={C.amber} />
             </div>
-            <span style={{ fontSize: 15, fontWeight: 600, color: "#f9fafb" }}>Print<span style={{ color: "#818cf8" }}>AI</span></span>
+            <span style={{ fontSize: 15, fontWeight: 600, color: "#818cf8" }}>Talaio</span>
           </div>
-          <span style={{ fontSize: 12, color: "#6b7280" }}>© 2026 PrintAI · AI-powered web-to-print · Chennai, India</span>
+          <span style={{ fontSize: 12, color: "#6b7280" }}>© 2026 Talaio · AI-powered web-to-print · Chennai, India</span>
         </div>
       </footer>
     </div>

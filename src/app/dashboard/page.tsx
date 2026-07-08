@@ -110,9 +110,7 @@ export default function DashboardPage() {
           <div style={{ width: 32, height: 32, borderRadius: 8, background: "#e0f2fe", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <Printer size={17} color={sky} />
           </div>
-          <span style={{ fontSize: 16, fontWeight: 600, color: "#f1f5f9" }}>
-            Print<span style={{ color: sky }}>AI</span>
-          </span>
+          <span style={{ fontSize: 16, fontWeight: 600, color: sky }}>Talaio</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           {isAdmin && (

@@ -75,7 +75,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
             <div style={{ width: 32, height: 32, borderRadius: 8, background: "#e0f2fe", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <Printer size={17} color="#0ea5e9" />
             </div>
-            <span style={{ fontSize: 16, fontWeight: 600, color: "#f1f5f9" }}>Print<span style={{ color: "#0ea5e9" }}>AI</span></span>
+            <span style={{ fontSize: 16, fontWeight: 600, color: "#0ea5e9" }}>Talaio</span>
           </div>
           <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b", padding: 4 }}>
             <X size={18} />

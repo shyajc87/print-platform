@@ -83,7 +83,7 @@ export default function AuthPage() {
       <div style={s.card}>
         <div style={s.logo}>
           <div style={s.logoMark}><Printer size={22} color="#0ea5e9" /></div>
-          <div style={s.logoName}>Print<span style={{ color: "#0ea5e9" }}>AI</span></div>
+          <div style={{ ...s.logoName, color: "#0ea5e9" }}>Talaio</div>
           <div style={s.logoSub}>{tab === "signin" ? "Welcome back" : "Create your account"}</div>
         </div>
 

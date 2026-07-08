@@ -103,7 +103,7 @@ export default function PartnerSignupPage() {
     <div style={{ minHeight: "100vh", background: "#f0f4f8", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "Inter, system-ui, sans-serif" }}>
       <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #e2e8f0", padding: "32px 28px", width: "100%", maxWidth: 460 }}>
         <div style={{ textAlign: "center", marginBottom: 24 }}>
-          <div style={{ fontSize: 18, fontWeight: 600, color: navy }}>Partner with Print<span style={{ color: sky }}>AI</span></div>
+          <div style={{ fontSize: 18, fontWeight: 600, color: navy }}>Partner with <span style={{ color: sky }}>Talaio</span></div>
           <div style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>List your business and start receiving requests</div>
         </div>
 
