@@ -7,7 +7,7 @@ import {
   Type, Square, Circle as CircleIcon, Image as ImageIcon, Sparkles, Undo2, Redo2,
   Trash2, BringToFront, SendToBack, Save, Download, ArrowLeft, Loader2, ZoomIn, ZoomOut,
   Maximize, QrCode, Star, Heart, CheckCircle2, MapPin, Phone, Home as HomeIcon, Award, ArrowRight as ArrowRightIcon,
-  Image as LogoIcon, Palette,
+  Image as LogoIcon, Palette, Wand2,
 } from "lucide-react";
 
 interface Brief {
@@ -308,6 +308,45 @@ export default function EditorContent() {
       setAiLoading(false);
     }
   };
+  const refineWithAi = async () => {
+    const canvas = fabricCanvasRef.current;
+    const active = canvas.getActiveObject();
+    const targetImg = active && active.type === "image" ? active : canvas.getObjects().find((o: any) => o.type === "image");
+    if (!targetImg) { setError("No image on the canvas to refine yet — add or generate one first."); return; }
+
+    const instruction = window.prompt("What should change? e.g. \"make the background blue\", \"add a mountain behind the house\", \"make the sky sunset-colored\"");
+    if (!instruction) return;
+
+    setAiLoading(true); setError("");
+    try {
+      const currentSrc = typeof (targetImg as any).getSrc === "function" ? (targetImg as any).getSrc() : (targetImg as any)._element?.src;
+      const res = await fetch("/api/refine-image", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageUrl: currentSrc, instruction }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Refine failed");
+
+      const fabric = fabricRef.current;
+      const newImg = await fabric.FabricImage.fromURL(data.imageUrl, { crossOrigin: "anonymous" });
+      newImg.set({
+        left: (targetImg as any).left, top: (targetImg as any).top,
+        scaleX: (targetImg as any).scaleX, scaleY: (targetImg as any).scaleY,
+        angle: (targetImg as any).angle,
+      });
+      const wasBackground = canvas.getObjects().indexOf(targetImg) === 0;
+      canvas.remove(targetImg);
+      canvas.add(newImg);
+      if (wasBackground) canvas.sendObjectToBack(newImg);
+      canvas.renderAll();
+      pushHistory();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Refine failed");
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   const generateAiImage = async () => {
     setAiLoading(true); setError("");
     try {
@@ -531,6 +570,9 @@ export default function EditorContent() {
         </div>
         <button onClick={generateAiImage} disabled={aiLoading} title="Generate with AI" style={{ ...toolBtn, background: "#f5f3ff", borderColor: "#c4b5fd" }}>
           {aiLoading ? <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> : <Sparkles size={16} color="#7c3aed" />}
+        </button>
+        <button onClick={refineWithAi} disabled={aiLoading} title="Refine image with AI (e.g. change background, add details)" style={{ ...toolBtn, background: "#ecfdf5", borderColor: "#6ee7b7" }}>
+          {aiLoading ? <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> : <Wand2 size={16} color="#059669" />}
         </button>
         <div style={{ width: 1, height: 20, background: "#374151" }} />
         <button onClick={undo} title="Undo" style={toolBtn}><Undo2 size={16} /></button>
